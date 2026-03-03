@@ -1,13 +1,17 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Send, Bot, User, Sparkles, TrendingUp, Shield, Landmark } from "lucide-react";
 import Navbar from "@/components/Navbar";
+import ReactMarkdown from "react-markdown";
+import { toast } from "sonner";
 
 type Message = {
   role: "user" | "assistant";
   content: string;
 };
+
+const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sg-chat`;
 
 const suggestedQueries = [
   { icon: TrendingUp, text: "What are the top growing sectors in Singapore for 2026?" },
@@ -15,38 +19,110 @@ const suggestedQueries = [
   { icon: Landmark, text: "What regulations should I know before launching a fintech startup?" },
 ];
 
+async function streamChat({
+  messages,
+  onDelta,
+  onDone,
+  onError,
+}: {
+  messages: Message[];
+  onDelta: (text: string) => void;
+  onDone: () => void;
+  onError: (err: string) => void;
+}) {
+  const resp = await fetch(CHAT_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    },
+    body: JSON.stringify({ messages }),
+  });
+
+  if (!resp.ok) {
+    if (resp.status === 429) { onError("Rate limited — please wait a moment and try again."); return; }
+    if (resp.status === 402) { onError("AI credits exhausted. Please try again later."); return; }
+    onError("Something went wrong. Please try again."); return;
+  }
+
+  if (!resp.body) { onError("No response body"); return; }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    let idx: number;
+    while ((idx = buffer.indexOf("\n")) !== -1) {
+      let line = buffer.slice(0, idx);
+      buffer = buffer.slice(idx + 1);
+      if (line.endsWith("\r")) line = line.slice(0, -1);
+      if (!line.startsWith("data: ")) continue;
+      const json = line.slice(6).trim();
+      if (json === "[DONE]") { onDone(); return; }
+      try {
+        const parsed = JSON.parse(json);
+        const content = parsed.choices?.[0]?.delta?.content;
+        if (content) onDelta(content);
+      } catch {
+        buffer = line + "\n" + buffer;
+        break;
+      }
+    }
+  }
+  onDone();
+}
+
 const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const assistantRef = useRef("");
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = async (text?: string) => {
+  const handleSend = useCallback(async (text?: string) => {
     const msg = text || input.trim();
-    if (!msg) return;
+    if (!msg || isLoading) return;
 
     const userMsg: Message = { role: "user", content: msg };
-    setMessages((prev) => [...prev, userMsg]);
+    const updatedMessages = [...messages, userMsg];
+    setMessages(updatedMessages);
     setInput("");
     setIsLoading(true);
+    assistantRef.current = "";
 
-    // Simulated response for now — will connect to Lovable AI later
-    setTimeout(() => {
-      const responses: Record<string, string> = {
-        default: `Great question! Here's a quick overview based on current Singapore market data:\n\n**Key Insights:**\n- Singapore's GDP growth is projected at 2.5-3.5% for 2026\n- The digital economy continues to be a major growth driver\n- Government initiatives like the SME Go Digital programme provide strong support\n\n**Recommendations:**\n1. Consider sectors aligned with Singapore's Green Plan 2030\n2. Leverage Enterprise Singapore grants for early-stage funding\n3. Monitor MAS guidelines if entering financial services\n\n*To get real-time, detailed analysis — upgrade to our Pro plan for unlimited queries.*`,
-      };
+    const upsert = (chunk: string) => {
+      assistantRef.current += chunk;
+      const content = assistantRef.current;
+      setMessages(prev => {
+        const last = prev[prev.length - 1];
+        if (last?.role === "assistant") {
+          return prev.map((m, i) => i === prev.length - 1 ? { ...m, content } : m);
+        }
+        return [...prev, { role: "assistant", content }];
+      });
+    };
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: responses.default },
-      ]);
+    try {
+      await streamChat({
+        messages: updatedMessages,
+        onDelta: upsert,
+        onDone: () => setIsLoading(false),
+        onError: (err) => { toast.error(err); setIsLoading(false); },
+      });
+    } catch {
+      toast.error("Failed to connect. Please try again.");
       setIsLoading(false);
-    }, 1500);
-  };
+    }
+  }, [input, messages, isLoading]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -101,17 +177,13 @@ const Chat = () => {
                       : "bg-card border border-border text-foreground rounded-bl-md"
                   }`}
                 >
-                  {msg.content.split("\n").map((line, j) => (
-                    <p key={j} className={j > 0 ? "mt-2" : ""}>
-                      {line.split(/(\*\*.*?\*\*)/).map((part, k) =>
-                        part.startsWith("**") && part.endsWith("**") ? (
-                          <strong key={k} className="font-semibold">{part.slice(2, -2)}</strong>
-                        ) : (
-                          <span key={k}>{part}</span>
-                        )
-                      )}
-                    </p>
-                  ))}
+                  {msg.role === "assistant" ? (
+                    <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
+                      <ReactMarkdown>{msg.content}</ReactMarkdown>
+                    </div>
+                  ) : (
+                    <p>{msg.content}</p>
+                  )}
                 </div>
                 {msg.role === "user" && (
                   <div className="w-8 h-8 rounded-lg bg-navy flex items-center justify-center shrink-0 mt-1">
@@ -122,7 +194,7 @@ const Chat = () => {
             ))}
           </AnimatePresence>
 
-          {isLoading && (
+          {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}

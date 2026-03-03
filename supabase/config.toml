@@ -1,1 +1,4 @@
 project_id = "zcyaqphtkeonrxgsmfeg"
+
+[functions.sg-chat]
+verify_jwt = false
