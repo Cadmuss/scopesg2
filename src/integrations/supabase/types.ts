@@ -14,6 +14,27 @@ export type Database = {
   }
   public: {
     Tables: {
+      market_trends_cache: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          query_key: string
+        }
+        Insert: {
+          created_at?: string
+          data: Json
+          id?: string
+          query_key: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          query_key?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
