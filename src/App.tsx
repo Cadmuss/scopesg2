@@ -7,7 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Chat from "./pages/Chat";
 import Marketplace from "./pages/Marketplace";
-import Pricing from "./pages/Pricing";
+
 import Trends from "./pages/Trends";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
@@ -26,7 +26,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/chat" element={<Chat />} />
             <Route path="/marketplace" element={<Marketplace />} />
-            <Route path="/pricing" element={<Pricing />} />
+            
             <Route path="/trends" element={<Trends />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
