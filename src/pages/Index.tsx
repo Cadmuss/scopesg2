@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, Shield, BarChart3, Landmark, Users, Zap, ArrowRight, Check, MessageSquare, Store } from "lucide-react";
+import { TrendingUp, Shield, BarChart3, Landmark, Users, Zap, ArrowRight, MessageSquare, Store } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
@@ -23,34 +23,6 @@ const features = [
 { icon: Zap, title: "Instant Insights", desc: "Get answers in seconds — no reports, no consultants, no waiting." }];
 
 
-const pricingPlans = [
-{
-  name: "Free",
-  price: "$0",
-  period: "forever",
-  desc: "Perfect for exploring the platform",
-  features: ["5 AI prompts per day", "1 marketplace post per week", "Basic market insights", "Community access"],
-  cta: "Start Free",
-  highlighted: false
-},
-{
-  name: "Pro",
-  price: "$30",
-  period: "/month",
-  desc: "For serious entrepreneurs & SMEs",
-  features: ["Unlimited AI prompts", "5 marketplace posts per week", "Advanced market analysis", "Regulation alerts", "Priority support"],
-  cta: "Go Pro",
-  highlighted: true
-},
-{
-  name: "Expert",
-  price: "$100",
-  period: "/month",
-  desc: "Full-suite intelligence access",
-  features: ["Everything in Pro", "Custom research reports", "API access", "Dedicated account manager", "Early feature access"],
-  cta: "Contact Us",
-  highlighted: false
-}];
 
 
 const Index = () => {
@@ -131,60 +103,6 @@ const Index = () => {
                 </div>
                 <h3 className="font-display font-semibold text-lg text-foreground mb-2">{f.title}</h3>
                 <p className="text-muted-foreground text-sm leading-relaxed">{f.desc}</p>
-              </motion.div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing */}
-      <section className="py-20 md:py-28 bg-muted/50" id="pricing">
-        <div className="container mx-auto px-4">
-          <motion.div className="text-center mb-16" initial="hidden" whileInView="visible" viewport={{ once: true }} custom={0} variants={fadeUp}>
-            <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground mb-4">
-              Simple, Transparent Pricing
-            </h2>
-            <p className="text-muted-foreground text-lg">Start free. Upgrade when you're ready to scale.</p>
-          </motion.div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {pricingPlans.map((plan, i) =>
-            <motion.div
-              key={plan.name}
-              className={`relative p-8 rounded-2xl border transition-all ${
-              plan.highlighted ?
-              "bg-navy-deep text-primary-foreground border-accent/40 scale-[1.02]" :
-              "bg-card text-foreground border-border"}`
-              }
-              style={{ boxShadow: plan.highlighted ? "var(--shadow-gold)" : "var(--shadow-card)" }}
-              initial="hidden" whileInView="visible" viewport={{ once: true }} custom={i} variants={fadeUp}>
-
-                {plan.highlighted &&
-              <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-accent text-accent-foreground text-xs font-bold rounded-full">
-                    Most Popular
-                  </span>
-              }
-                <h3 className="font-display font-bold text-xl mb-1">{plan.name}</h3>
-                <p className={`text-sm mb-4 ${plan.highlighted ? "text-primary-foreground/60" : "text-muted-foreground"}`}>{plan.desc}</p>
-                <div className="flex items-baseline gap-1 mb-6">
-                  <span className="text-4xl font-display font-bold">{plan.price}</span>
-                  <span className={`text-sm ${plan.highlighted ? "text-primary-foreground/50" : "text-muted-foreground"}`}>{plan.period}</span>
-                </div>
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((f) =>
-                <li key={f} className="flex items-start gap-2 text-sm">
-                      <Check className={`w-4 h-4 mt-0.5 shrink-0 ${plan.highlighted ? "text-accent" : "text-accent"}`} />
-                      <span>{f}</span>
-                    </li>
-                )}
-                </ul>
-                <Link to="/chat">
-                  <Button
-                  variant={plan.highlighted ? "gold" : "outline"}
-                  className="w-full gap-2">
-
-                    {plan.cta} <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
               </motion.div>
             )}
           </div>
