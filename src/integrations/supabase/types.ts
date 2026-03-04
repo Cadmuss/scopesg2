@@ -65,6 +65,36 @@ export type Database = {
         }
         Relationships: []
       }
+      report_orders: {
+        Row: {
+          consultation_data: Json
+          created_at: string
+          id: string
+          report_content: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          consultation_data: Json
+          created_at?: string
+          id?: string
+          report_content?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          consultation_data?: Json
+          created_at?: string
+          id?: string
+          report_content?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

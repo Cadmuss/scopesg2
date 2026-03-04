@@ -2,3 +2,12 @@ project_id = "zcyaqphtkeonrxgsmfeg"
 
 [functions.sg-chat]
 verify_jwt = false
+
+[functions.sg-market-trends]
+verify_jwt = false
+
+[functions.create-report-checkout]
+verify_jwt = false
+
+[functions.generate-report]
+verify_jwt = false

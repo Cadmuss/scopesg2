@@ -1,10 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Send, Bot, User, Briefcase, Users, Wallet, Award } from "lucide-react";
+import { Send, Bot, User, Briefcase, Users, Wallet, Award, FileText, Loader2 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import ReactMarkdown from "react-markdown";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 type Message = {
   role: "user" | "assistant";
@@ -100,8 +103,16 @@ const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isPurchasing, setIsPurchasing] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const assistantRef = useRef("");
+  const { user } = useAuth();
+  const navigate = useNavigate();
+
+  // Detect if the snapshot has been delivered (look for the premium report upsell text)
+  const snapshotDelivered = messages.some(
+    (m) => m.role === "assistant" && m.content.includes("Premium Business Report")
+  );
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -142,6 +153,30 @@ const Chat = () => {
       setIsLoading(false);
     }
   }, [input, messages, isLoading]);
+
+  const handlePurchaseReport = useCallback(async () => {
+    if (!user) {
+      toast.error("Please sign in to purchase a report.");
+      navigate("/auth");
+      return;
+    }
+    setIsPurchasing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("create-report-checkout", {
+        body: { consultationMessages: messages },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      if (data?.url) {
+        window.open(data.url, "_blank");
+      }
+    } catch (e: any) {
+      console.error("Checkout error:", e);
+      toast.error(e.message || "Failed to create checkout session");
+    } finally {
+      setIsPurchasing(false);
+    }
+  }, [user, messages, navigate]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -230,6 +265,37 @@ const Chat = () => {
           )}
           <div ref={endRef} />
         </div>
+
+        {/* Premium Report CTA */}
+        {snapshotDelivered && !isLoading && (
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="px-4 py-3 border-t border-accent/20 bg-accent/5"
+          >
+            <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <FileText className="w-5 h-5 text-accent shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-foreground">Get Your Premium Report</p>
+                  <p className="text-xs text-muted-foreground">Detailed projections, competitor analysis &amp; 90-day launch plan</p>
+                </div>
+              </div>
+              <Button
+                variant="gold"
+                onClick={handlePurchaseReport}
+                disabled={isPurchasing}
+                className="gap-2 shrink-0"
+              >
+                {isPurchasing ? (
+                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
+                ) : (
+                  <>SGD $20 — Buy Report</>
+                )}
+              </Button>
+            </div>
+          </motion.div>
+        )}
 
         {/* Input */}
         <div className="border-t border-border bg-card/80 backdrop-blur-sm p-4">
