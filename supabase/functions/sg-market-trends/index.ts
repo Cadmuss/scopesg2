@@ -53,11 +53,11 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a Singapore market intelligence analyst. Provide current, realistic market trend data for Singapore's key business sectors. Base your analysis on real market conditions, government policies (like Smart Nation initiatives), and economic data. Be specific to Singapore's context.`,
+            content: `You are a Singapore market intelligence analyst. The current date is ${new Date().toISOString().split('T')[0]}. Provide current, realistic market trend data for Singapore's key business sectors as of TODAY. Base your analysis on the latest real market conditions, government policies (like Smart Nation initiatives, Budget 2026), and the most recent economic data. All quarterly momentum data MUST use the most recent 4 quarters leading up to the current date. Be specific to Singapore's context.`,
           },
           {
             role: "user",
-            content: `Analyze Singapore's current market trends across these sectors: F&B, Fintech, E-commerce, Healthcare, Logistics, EdTech, CleanTech, and PropTech. Provide growth rates, saturation levels, risk scores, and quarterly momentum data.`,
+            content: `Analyze Singapore's current market trends as of today (${new Date().toISOString().split('T')[0]}) across these sectors: F&B, Fintech, E-commerce, Healthcare, Logistics, EdTech, CleanTech, and PropTech. Provide growth rates, saturation levels, risk scores, and quarterly momentum data for the most recent 4 quarters.`,
           },
         ],
         tools: [
