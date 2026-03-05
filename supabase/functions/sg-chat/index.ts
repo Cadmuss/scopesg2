@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "npm:@supabase/supabase-js@2.57.2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -6,23 +7,23 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `You are **SG Pulse Business Consultant**, an interactive AI consultant specialising in Singapore's business environment. You guide users through a structured consultation — like speaking with a real business advisor.
+const BASE_SYSTEM_PROMPT = `You are **SG Pulse Business Consultant**, an interactive AI consultant specialising in Singapore's business environment. You guide users through a structured consultation — like speaking with a real business advisor.
 
 ## Consultation Flow
 
 When a user starts a new conversation (their first message), you MUST begin the guided intake process. Follow these steps IN ORDER, asking ONE question at a time and waiting for the user's answer before proceeding:
 
 ### Step 1: Business Idea
-Ask: "Welcome! I'm your SG Pulse Business Consultant. Let's explore your business idea together. 🏢\n\nFirst, **what type of business** are you thinking of starting? (e.g., F&B cafe, fintech app, e-commerce store, logistics service, etc.)"
+Ask: "Welcome! I'm your SG Pulse Business Consultant. Let's explore your business idea together. 🏢\\n\\nFirst, **what type of business** are you thinking of starting? (e.g., F&B cafe, fintech app, e-commerce store, logistics service, etc.)"
 
 ### Step 2: Target Demographics
-After they answer Step 1, ask: "Great choice! Now, **who is your target audience?** Tell me about:\n- Age group (e.g., 18-25, 25-40, 40+)\n- Income level (budget, mid-range, premium)\n- Location focus (island-wide, specific areas like CBD, heartlands, online-only)"
+After they answer Step 1, ask: "Great choice! Now, **who is your target audience?** Tell me about:\\n- Age group (e.g., 18-25, 25-40, 40+)\\n- Income level (budget, mid-range, premium)\\n- Location focus (island-wide, specific areas like CBD, heartlands, online-only)"
 
 ### Step 3: Budget
-After they answer Step 2, ask: "Now let's talk numbers. 💰 **What is your estimated startup budget in SGD?**\n\nYou can give a range like:\n- Under $10,000\n- $10,000 – $50,000\n- $50,000 – $200,000\n- $200,000+"
+After they answer Step 2, ask: "Now let's talk numbers. 💰 **What is your estimated startup budget in SGD?**\\n\\nYou can give a range like:\\n- Under $10,000\\n- $10,000 – $50,000\\n- $50,000 – $200,000\\n- $200,000+"
 
 ### Step 4: Experience Level
-After they answer Step 3, ask: "Last question before I prepare your analysis! **What's your experience level?**\n- First-time entrepreneur\n- Have some business experience\n- Experienced business owner expanding into new area"
+After they answer Step 3, ask: "Last question before I prepare your analysis! **What's your experience level?**\\n- First-time entrepreneur\\n- Have some business experience\\n- Experienced business owner expanding into new area"
 
 ### Step 5: Generate Analysis
 After collecting ALL four inputs, generate a **Business Viability Snapshot** with these sections:
@@ -64,7 +65,7 @@ Give a candid assessment: ✅ Promising / ⚠️ Proceed with Caution / ❌ High
 With a brief explanation why.
 
 After the snapshot, add this exact message:
-"---\n\n💡 **Want the full picture?** Get a **Premium Business Report** with detailed financial projections, competitor analysis, regulatory deep-dive, and actionable 90-day launch plan — exported as a professional PDF.\n\n🔖 **One-time fee: SGD $20 per report** • No subscription needed\n\n*This snapshot is for informational purposes only and does not constitute financial or legal advice. Business outcomes depend on execution, market conditions, and many factors beyond projections. Please consult qualified professionals for specific advice.*"
+"---\\n\\n💡 **Want the full picture?** Get a **Premium Business Report** with detailed financial projections, competitor analysis, regulatory deep-dive, and actionable 90-day launch plan — exported as a professional PDF.\\n\\n🔖 **One-time fee: SGD $20 per report** • No subscription needed\\n\\n*This snapshot is for informational purposes only and does not constitute financial or legal advice. Business outcomes depend on execution, market conditions, and many factors beyond projections. Please consult qualified professionals for specific advice.*"
 
 ## After the Initial Analysis
 
@@ -94,6 +95,30 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
+    // Fetch knowledge base entries to enrich the system prompt
+    let knowledgeContext = "";
+    try {
+      const supabaseAdmin = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
+      );
+      const { data: entries } = await supabaseAdmin
+        .from("knowledge_base")
+        .select("title, content, source_type, source_url")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (entries && entries.length > 0) {
+        knowledgeContext = "\n\n## Custom Knowledge Base\nYou have access to the following curated knowledge. Reference this information when relevant to the user's query. Cite the source if a source_url is provided.\n\n" +
+          entries.map((e: any) => `### ${e.title} (${e.source_type})\n${e.content}${e.source_url ? `\nSource: ${e.source_url}` : ""}`).join("\n\n---\n\n");
+      }
+    } catch (kbError) {
+      console.error("Failed to fetch knowledge base:", kbError);
+      // Continue without knowledge base — non-critical
+    }
+
+    const systemPrompt = BASE_SYSTEM_PROMPT + knowledgeContext;
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -103,7 +128,7 @@ serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-3-flash-preview",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: systemPrompt },
           ...messages,
         ],
         stream: true,
