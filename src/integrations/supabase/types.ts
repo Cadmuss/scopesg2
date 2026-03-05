@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      knowledge_base: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          source_type: string
+          source_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          source_type?: string
+          source_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          source_type?: string
+          source_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       market_trends_cache: {
         Row: {
           created_at: string
