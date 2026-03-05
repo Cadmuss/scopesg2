@@ -14,7 +14,6 @@ const Navbar = () => {
     { to: "/chat", label: "AI Analyst" },
     { to: "/trends", label: "Trends" },
     { to: "/marketplace", label: "Marketplace" },
-    { to: "/knowledge", label: "Knowledge" },
   ];
 
   return (

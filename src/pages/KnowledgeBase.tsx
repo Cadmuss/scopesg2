@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, FileText, Globe, PenLine, BookOpen } from "lucide-react";
+import { Plus, Trash2, FileText, Globe, PenLine, BookOpen, ShieldAlert } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -37,6 +37,7 @@ const KnowledgeBase = () => {
   const [sourceType, setSourceType] = useState("manual");
   const [sourceUrl, setSourceUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [isEditor, setIsEditor] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -44,9 +45,23 @@ const KnowledgeBase = () => {
     }
   }, [user, loading, navigate]);
 
+  // Check if user has editor/admin role
   useEffect(() => {
-    fetchEntries();
-  }, []);
+    if (!user) return;
+    const checkRole = async () => {
+      const { data } = await supabase
+        .from("user_roles")
+        .select("role")
+        .eq("user_id", user.id);
+      const roles = data?.map((r: any) => r.role) || [];
+      setIsEditor(roles.includes("editor") || roles.includes("admin"));
+    };
+    checkRole();
+  }, [user]);
+
+  useEffect(() => {
+    if (isEditor) fetchEntries();
+  }, [isEditor]);
 
   const fetchEntries = async () => {
     const { data, error } = await supabase
@@ -70,6 +85,7 @@ const KnowledgeBase = () => {
     });
     if (error) {
       toast.error("Failed to save entry");
+      console.error(error);
     } else {
       toast.success("Knowledge entry added! The AI will use this in future consultations.");
       setTitle("");
@@ -92,7 +108,20 @@ const KnowledgeBase = () => {
     }
   };
 
-  if (loading) return null;
+  if (loading || isEditor === null) return null;
+
+  if (!isEditor) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="pt-20 pb-12 px-4 max-w-4xl mx-auto text-center">
+          <ShieldAlert className="w-16 h-16 mx-auto mb-4 text-destructive/50" />
+          <h1 className="font-display text-2xl font-bold text-foreground mb-2">Access Denied</h1>
+          <p className="text-muted-foreground">This page is restricted to editors and administrators.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
