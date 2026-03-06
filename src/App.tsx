@@ -11,6 +11,7 @@ import ReportSuccess from "./pages/ReportSuccess";
 import Trends from "./pages/Trends";
 import Auth from "./pages/Auth";
 import KnowledgeBase from "./pages/KnowledgeBase";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/report-success" element={<ReportSuccess />} />
             <Route path="/trends" element={<Trends />} />
             <Route path="/knowledge" element={<KnowledgeBase />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
