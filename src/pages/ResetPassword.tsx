@@ -68,6 +68,17 @@ const ResetPassword = () => {
     setLoading(false);
   };
 
+  if (checking) {
+    return (
+      <div className="min-h-screen flex flex-col" style={{ background: "var(--gradient-hero)" }}>
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center px-4 pt-16">
+          <p className="text-primary-foreground/60 text-sm">Verifying reset link...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isRecovery) {
     return (
       <div className="min-h-screen flex flex-col" style={{ background: "var(--gradient-hero)" }}>
