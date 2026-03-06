@@ -35,7 +35,7 @@ const ResetPassword = () => {
     }
 
     // Give Supabase time to process the recovery token before showing expired
-    const timeout = setTimeout(() => setChecking(false), 5000);
+    const timeout = setTimeout(() => setChecking(false), 5 * 60 * 1000);
 
     return () => {
       subscription.unsubscribe();
