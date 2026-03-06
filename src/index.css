@@ -100,3 +100,26 @@
     font-family: var(--font-display);
   }
 }
+
+/* Report styling */
+.report-content h1 {
+  @apply text-3xl font-bold text-foreground mb-2 pb-3 border-b-2 border-accent/30;
+  font-family: var(--font-display);
+}
+.report-content h2 {
+  @apply text-xl font-bold text-foreground mt-8 mb-4 pb-2 border-b border-border/50;
+  font-family: var(--font-display);
+}
+.report-content h3 {
+  @apply text-lg font-semibold text-foreground mt-6 mb-3;
+  font-family: var(--font-display);
+}
+
+@media print {
+  .no-print, nav, footer {
+    display: none !important;
+  }
+  .report-content {
+    font-size: 11pt;
+  }
+}
