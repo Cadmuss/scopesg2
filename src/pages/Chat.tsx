@@ -1,18 +1,35 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Send, Bot, User, Briefcase, Users, Wallet, Award, FileText, Loader2 } from "lucide-react";
+import {
+  Send,
+  Bot,
+  User,
+  Briefcase,
+  Users,
+  Wallet,
+  Award,
+  FileText,
+  Loader2,
+  Sparkles,
+  Target,
+  ClipboardList,
+  MapPin,
+  Calculator,
+  PanelLeftClose,
+  PanelLeftOpen,
+} from "lucide-react";
 import Navbar from "@/components/Navbar";
+import ChatSidebar from "@/components/ChatSidebar";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
+import { useChatHistory, StoredMessage } from "@/hooks/useChatHistory";
 
-type Message = {
-  role: "user" | "assistant";
-  content: string;
-};
+type Message = StoredMessage;
 
 const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sg-chat`;
 
@@ -23,13 +40,36 @@ const quickStarters = [
   { icon: Award, text: "I'm exploring the healthcare/wellness industry" },
 ];
 
+const sgSuperpowers = [
+  {
+    icon: Target,
+    label: "Match SG Grants",
+    prompt: "Match me to relevant Singapore government grants based on what I've shared so far (EDG, PSG, MRA, Startup SG Founder, SFEC). Show eligibility, max funding, and apply links.",
+  },
+  {
+    icon: ClipboardList,
+    label: "Compliance Checklist",
+    prompt: "Generate my personalised Singapore regulatory compliance checklist as a markdown table — every license, permit, and registration I need with agency, fee, processing time, and apply link.",
+  },
+  {
+    icon: MapPin,
+    label: "Location Heatmap",
+    prompt: "Give me a Singapore location heatmap comparison table (3-5 planning areas) for my business — foot traffic, rent S$/sqft, demographics, competitor density, and best-fit recommendation.",
+  },
+  {
+    icon: Calculator,
+    label: "CPF + Hiring Cost",
+    prompt: "Calculate my full Singapore hiring cost. Assume 2 local hires (one S$4,000/mo, one S$6,000/mo) — break down employer CPF, SDL, total monthly + annual cost. Include EP qualifying salary thresholds.",
+  },
+];
+
 async function streamChat({
   messages,
   onDelta,
   onDone,
   onError,
 }: {
-  messages: Message[];
+  messages: { role: string; content: string }[];
   onDelta: (text: string) => void;
   onDone: () => void;
   onError: (err: string) => void;
@@ -80,36 +120,21 @@ async function streamChat({
   onDone();
 }
 
-const ConsultationSteps = () => (
-  <div className="flex items-center gap-2 justify-center flex-wrap mb-6">
-    {[
-      { step: 1, label: "Business Idea", icon: Briefcase },
-      { step: 2, label: "Demographics", icon: Users },
-      { step: 3, label: "Budget", icon: Wallet },
-      { step: 4, label: "Experience", icon: Award },
-    ].map((s, i) => (
-      <div key={s.step} className="flex items-center gap-2">
-        {i > 0 && <div className="w-6 h-px bg-border hidden sm:block" />}
-        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-card border border-border text-xs text-muted-foreground">
-          <s.icon className="w-3.5 h-3.5 text-accent" />
-          <span>{s.label}</span>
-        </div>
-      </div>
-    ))}
-  </div>
-);
-
 const Chat = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const history = useChatHistory();
+
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const endRef = useRef<HTMLDivElement>(null);
   const assistantRef = useRef("");
-  const { user } = useAuth();
-  const navigate = useNavigate();
+  const messageCountRef = useRef(0);
 
-  // Detect if the snapshot has been delivered (look for the premium report upsell text)
   const snapshotDelivered = messages.some(
     (m) => m.role === "assistant" && m.content.includes("Premium Business Report")
   );
@@ -118,41 +143,96 @@ const Chat = () => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleSend = useCallback(async (text?: string) => {
-    const msg = text || input.trim();
-    if (!msg || isLoading) return;
-
-    const userMsg: Message = { role: "user", content: msg };
-    const updatedMessages = [...messages, userMsg];
-    setMessages(updatedMessages);
-    setInput("");
-    setIsLoading(true);
-    assistantRef.current = "";
-
-    const upsert = (chunk: string) => {
-      assistantRef.current += chunk;
-      const content = assistantRef.current;
-      setMessages(prev => {
-        const last = prev[prev.length - 1];
-        if (last?.role === "assistant") {
-          return prev.map((m, i) => i === prev.length - 1 ? { ...m, content } : m);
-        }
-        return [...prev, { role: "assistant", content }];
-      });
-    };
-
-    try {
-      await streamChat({
-        messages: updatedMessages,
-        onDelta: upsert,
-        onDone: () => setIsLoading(false),
-        onError: (err) => { toast.error(err); setIsLoading(false); },
-      });
-    } catch {
-      toast.error("Failed to connect. Please try again.");
-      setIsLoading(false);
+  // Load messages when active conversation changes
+  useEffect(() => {
+    if (!activeId) {
+      setMessages([]);
+      messageCountRef.current = 0;
+      return;
     }
-  }, [input, messages, isLoading]);
+    history.loadMessages(activeId).then((m) => {
+      setMessages(m);
+      messageCountRef.current = m.length;
+    });
+  }, [activeId, history.loadMessages]);
+
+  const handleNew = useCallback(() => {
+    setActiveId(null);
+    setMessages([]);
+    messageCountRef.current = 0;
+  }, []);
+
+  const handleSend = useCallback(
+    async (text?: string) => {
+      const msg = (text || input).trim();
+      if (!msg || isLoading) return;
+
+      if (!user) {
+        toast.error("Please sign in to chat — this lets us save your history.");
+        navigate("/auth");
+        return;
+      }
+
+      // Ensure conversation exists
+      let convId = activeId;
+      if (!convId) {
+        const title = msg.length > 60 ? msg.slice(0, 57) + "..." : msg;
+        const created = await history.createConversation(title);
+        if (!created) return;
+        convId = created.id;
+        setActiveId(convId);
+      }
+
+      const userMsg: Message = { role: "user", content: msg };
+      const updatedMessages = [...messages, userMsg];
+      setMessages(updatedMessages);
+      setInput("");
+      setIsLoading(true);
+      assistantRef.current = "";
+
+      // Persist user message
+      await history.saveMessage(convId, userMsg, messageCountRef.current);
+      messageCountRef.current += 1;
+
+      // Insert assistant placeholder
+      const assistantOrdering = messageCountRef.current;
+      await history.saveMessage(convId, { role: "assistant", content: "" }, assistantOrdering);
+      messageCountRef.current += 1;
+
+      const upsert = (chunk: string) => {
+        assistantRef.current += chunk;
+        const content = assistantRef.current;
+        setMessages((prev) => {
+          const last = prev[prev.length - 1];
+          if (last?.role === "assistant") {
+            return prev.map((m, i) => (i === prev.length - 1 ? { ...m, content } : m));
+          }
+          return [...prev, { role: "assistant", content }];
+        });
+      };
+
+      try {
+        await streamChat({
+          messages: updatedMessages.map((m) => ({ role: m.role, content: m.content })),
+          onDelta: upsert,
+          onDone: async () => {
+            setIsLoading(false);
+            if (convId && assistantRef.current) {
+              await history.updateLastAssistantMessage(convId, assistantRef.current);
+            }
+          },
+          onError: (err) => {
+            toast.error(err);
+            setIsLoading(false);
+          },
+        });
+      } catch {
+        toast.error("Failed to connect. Please try again.");
+        setIsLoading(false);
+      }
+    },
+    [input, messages, isLoading, user, activeId, history, navigate]
+  );
 
   const handlePurchaseReport = useCallback(async () => {
     if (!user) {
@@ -167,11 +247,8 @@ const Chat = () => {
       });
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
-      if (data?.url) {
-        window.open(data.url, "_blank");
-      }
+      if (data?.url) window.open(data.url, "_blank");
     } catch (e: any) {
-      console.error("Checkout error:", e);
       toast.error(e.message || "Failed to create checkout session");
     } finally {
       setIsPurchasing(false);
@@ -181,145 +258,209 @@ const Chat = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <Navbar />
-      <div className="flex-1 pt-16 flex flex-col max-w-4xl mx-auto w-full">
-        {/* Messages area */}
-        <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
-          {messages.length === 0 && (
-            <div className="flex flex-col items-center justify-center h-full min-h-[60vh] text-center">
-              <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4 animate-float">
-                <Briefcase className="w-8 h-8 text-accent" />
+      <div className="flex-1 pt-16 flex w-full">
+        {/* Sidebar */}
+        {user && sidebarOpen && (
+          <ChatSidebar
+            folders={history.folders}
+            conversations={history.conversations}
+            activeId={activeId}
+            onSelect={setActiveId}
+            onNew={handleNew}
+            onCreateFolder={history.createFolder}
+            onDeleteFolder={history.deleteFolder}
+            onDeleteConversation={async (id) => {
+              await history.deleteConversation(id);
+              if (id === activeId) handleNew();
+            }}
+            onRenameConversation={history.renameConversation}
+            onMoveConversation={history.moveConversation}
+            onSetTags={history.setConversationTags}
+          />
+        )}
+
+        {/* Main chat */}
+        <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full relative">
+          {user && (
+            <button
+              onClick={() => setSidebarOpen((v) => !v)}
+              className="absolute left-2 top-2 z-10 p-1.5 rounded-md hover:bg-muted text-muted-foreground"
+              aria-label="Toggle sidebar"
+            >
+              {sidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeftOpen className="w-4 h-4" />}
+            </button>
+          )}
+
+          <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+            {messages.length === 0 && (
+              <div className="flex flex-col items-center justify-center h-full min-h-[60vh] text-center">
+                <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4 animate-float">
+                  <Briefcase className="w-8 h-8 text-accent" />
+                </div>
+                <h2 className="font-display text-2xl font-bold text-foreground mb-2">
+                  Your SG Business Consultant
+                </h2>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  Singapore-only intelligence: live grant matching, regulatory checklists, location heatmaps, and CPF cost calcs — none of which generic AI can do for you.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl w-full mb-6">
+                  {quickStarters.map((q) => (
+                    <button
+                      key={q.text}
+                      onClick={() => handleSend(q.text)}
+                      className="p-4 rounded-xl border border-border bg-card text-left hover:border-accent/30 hover:shadow-[var(--shadow-card-hover)] transition-all group"
+                    >
+                      <q.icon className="w-5 h-5 text-accent mb-2" />
+                      <p className="text-sm text-foreground leading-snug">{q.text}</p>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="w-full max-w-2xl">
+                  <div className="flex items-center gap-2 mb-3 justify-center">
+                    <Sparkles className="w-4 h-4 text-accent" />
+                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      SG Superpowers — only here
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {sgSuperpowers.map((s) => (
+                      <button
+                        key={s.label}
+                        onClick={() => handleSend(s.prompt)}
+                        className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-accent/20 bg-accent/5 hover:bg-accent/10 transition-colors"
+                      >
+                        <s.icon className="w-4 h-4 text-accent" />
+                        <span className="text-xs font-medium text-foreground text-center leading-tight">
+                          {s.label}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
-              <h2 className="font-display text-2xl font-bold text-foreground mb-2">
-                Your Business Consultant
-              </h2>
-              <p className="text-muted-foreground mb-4 max-w-md">
-                I'll walk you through a quick consultation — just like speaking with a real advisor. Tell me your business idea and I'll assess its viability in Singapore.
-              </p>
-              <ConsultationSteps />
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-2xl w-full">
-                {quickStarters.map((q) => (
-                  <button
-                    key={q.text}
-                    onClick={() => handleSend(q.text)}
-                    className="p-4 rounded-xl border border-border bg-card text-left hover:border-accent/30 hover:shadow-[var(--shadow-card-hover)] transition-all group"
+            )}
+
+            <AnimatePresence>
+              {messages.map((msg, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  {msg.role === "assistant" && (
+                    <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0 mt-1">
+                      <Bot className="w-4 h-4 text-accent" />
+                    </div>
+                  )}
+                  <div
+                    className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                      msg.role === "user"
+                        ? "bg-navy text-primary-foreground rounded-br-md"
+                        : "bg-card border border-border text-foreground rounded-bl-md"
+                    }`}
                   >
-                    <q.icon className="w-5 h-5 text-accent mb-2" />
-                    <p className="text-sm text-foreground group-hover:text-foreground/90 leading-snug">{q.text}</p>
-                  </button>
-                ))}
-              </div>
+                    {msg.role === "assistant" ? (
+                      <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-table:text-xs">
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                      </div>
+                    ) : (
+                      <p>{msg.content}</p>
+                    )}
+                  </div>
+                  {msg.role === "user" && (
+                    <div className="w-8 h-8 rounded-lg bg-navy flex items-center justify-center shrink-0 mt-1">
+                      <User className="w-4 h-4 text-primary-foreground" />
+                    </div>
+                  )}
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
+                <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
+                  <Bot className="w-4 h-4 text-accent" />
+                </div>
+                <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-3">
+                  <div className="flex gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-accent/40 animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-accent/40 animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 rounded-full bg-accent/40 animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            <div ref={endRef} />
+          </div>
+
+          {/* SG Superpowers quick-bar (when chat in progress) */}
+          {messages.length > 0 && !isLoading && (
+            <div className="px-4 py-2 border-t border-border bg-card/40 flex gap-2 overflow-x-auto">
+              {sgSuperpowers.map((s) => (
+                <button
+                  key={s.label}
+                  onClick={() => handleSend(s.prompt)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs bg-accent/10 hover:bg-accent/20 text-foreground border border-accent/20 whitespace-nowrap transition-colors shrink-0"
+                >
+                  <s.icon className="w-3 h-3 text-accent" />
+                  {s.label}
+                </button>
+              ))}
             </div>
           )}
 
-          <AnimatePresence>
-            {messages.map((msg, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3 }}
-                className={`flex gap-3 ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-              >
-                {msg.role === "assistant" && (
-                  <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0 mt-1">
-                    <Bot className="w-4 h-4 text-accent" />
+          {snapshotDelivered && !isLoading && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="px-4 py-3 border-t border-accent/20 bg-accent/5"
+            >
+              <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 text-accent shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Get Your Premium Report</p>
+                    <p className="text-xs text-muted-foreground">Detailed projections, competitor analysis &amp; 90-day launch plan</p>
                   </div>
-                )}
-                <div
-                  className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                    msg.role === "user"
-                      ? "bg-navy text-primary-foreground rounded-br-md"
-                      : "bg-card border border-border text-foreground rounded-bl-md"
-                  }`}
-                >
-                  {msg.role === "assistant" ? (
-                    <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground">
-                      <ReactMarkdown>{msg.content}</ReactMarkdown>
-                    </div>
+                </div>
+                <Button variant="gold" onClick={handlePurchaseReport} disabled={isPurchasing} className="gap-2 shrink-0">
+                  {isPurchasing ? (
+                    <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
                   ) : (
-                    <p>{msg.content}</p>
+                    <>SGD $20 — Buy Report</>
                   )}
-                </div>
-                {msg.role === "user" && (
-                  <div className="w-8 h-8 rounded-lg bg-navy flex items-center justify-center shrink-0 mt-1">
-                    <User className="w-4 h-4 text-primary-foreground" />
-                  </div>
-                )}
-              </motion.div>
-            ))}
-          </AnimatePresence>
-
-          {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
-              <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
-                <Bot className="w-4 h-4 text-accent" />
-              </div>
-              <div className="bg-card border border-border rounded-2xl rounded-bl-md px-4 py-3">
-                <div className="flex gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-accent/40 animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 rounded-full bg-accent/40 animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 rounded-full bg-accent/40 animate-bounce" style={{ animationDelay: "300ms" }} />
-                </div>
+                </Button>
               </div>
             </motion.div>
           )}
-          <div ref={endRef} />
-        </div>
 
-        {/* Premium Report CTA */}
-        {snapshotDelivered && !isLoading && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="px-4 py-3 border-t border-accent/20 bg-accent/5"
-          >
-            <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-3">
-                <FileText className="w-5 h-5 text-accent shrink-0" />
-                <div>
-                  <p className="text-sm font-medium text-foreground">Get Your Premium Report</p>
-                  <p className="text-xs text-muted-foreground">Detailed projections, competitor analysis &amp; 90-day launch plan</p>
-                </div>
-              </div>
+          <div className="border-t border-border bg-card/80 backdrop-blur-sm p-4">
+            <div className="flex gap-3 max-w-4xl mx-auto">
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                placeholder={user ? "Tell me about your business idea..." : "Sign in to start a saved consultation..."}
+                className="flex-1 bg-muted rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all"
+              />
               <Button
                 variant="gold"
-                onClick={handlePurchaseReport}
-                disabled={isPurchasing}
-                className="gap-2 shrink-0"
+                size="icon"
+                className="h-12 w-12 rounded-xl shrink-0"
+                onClick={() => handleSend()}
+                disabled={!input.trim() || isLoading}
               >
-                {isPurchasing ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
-                ) : (
-                  <>SGD $20 — Buy Report</>
-                )}
+                <Send className="w-5 h-5" />
               </Button>
             </div>
-          </motion.div>
-        )}
-
-        {/* Input */}
-        <div className="border-t border-border bg-card/80 backdrop-blur-sm p-4">
-          <div className="flex gap-3 max-w-4xl mx-auto">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-              placeholder="Tell me about your business idea..."
-              className="flex-1 bg-muted rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all"
-            />
-            <Button
-              variant="gold"
-              size="icon"
-              className="h-12 w-12 rounded-xl shrink-0"
-              onClick={() => handleSend()}
-              disabled={!input.trim() || isLoading}
-            >
-              <Send className="w-5 h-5" />
-            </Button>
+            <p className="text-xs text-muted-foreground text-center mt-2">
+              Chats auto-saved • Free viability snapshot • Premium PDF report: SGD $20
+            </p>
           </div>
-          <p className="text-xs text-muted-foreground text-center mt-2">
-            Free viability snapshot • Premium PDF report: SGD $20/report
-          </p>
         </div>
       </div>
     </div>
