@@ -235,6 +235,20 @@ const Chat = () => {
     [input, messages, isLoading, user, activeId, history, navigate]
   );
 
+  // Auto-send initial prompt from navigation state (e.g. from News "Ask analyst")
+  const initialSentRef = useRef(false);
+  useEffect(() => {
+    const initial = (location.state as { initialPrompt?: string } | null)?.initialPrompt;
+    if (initial && !initialSentRef.current && user) {
+      initialSentRef.current = true;
+      // Clear nav state so reload doesn't re-fire
+      navigate(location.pathname, { replace: true, state: null });
+      handleNew();
+      // Defer one tick so handleNew state resets first
+      setTimeout(() => handleSend(initial), 0);
+    }
+  }, [location, user, handleSend, handleNew, navigate]);
+
   const handlePurchaseReport = useCallback(async () => {
     if (!user) {
       toast.error("Please sign in to purchase a report.");
