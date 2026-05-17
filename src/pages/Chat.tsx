@@ -123,6 +123,7 @@ async function streamChat({
 const Chat = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const history = useChatHistory();
 
   const [activeId, setActiveId] = useState<string | null>(null);
