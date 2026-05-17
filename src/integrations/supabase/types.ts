@@ -150,6 +150,27 @@ export type Database = {
         }
         Relationships: []
       }
+      market_news_cache: {
+        Row: {
+          created_at: string
+          data: Json
+          id: string
+          query_key: string
+        }
+        Insert: {
+          created_at?: string
+          data: Json
+          id?: string
+          query_key: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          id?: string
+          query_key?: string
+        }
+        Relationships: []
+      }
       market_trends_cache: {
         Row: {
           created_at: string

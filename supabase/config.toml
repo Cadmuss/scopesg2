@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.sg-market-trends]
 verify_jwt = false
 
+[functions.sg-market-news]
+verify_jwt = false
+
 [functions.create-report-checkout]
 verify_jwt = false
 

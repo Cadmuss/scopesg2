@@ -9,6 +9,7 @@ import Chat from "./pages/Chat";
 import Marketplace from "./pages/Marketplace";
 import ReportSuccess from "./pages/ReportSuccess";
 import Trends from "./pages/Trends";
+import News from "./pages/News";
 import Auth from "./pages/Auth";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import ResetPassword from "./pages/ResetPassword";
@@ -30,6 +31,7 @@ const App = () => (
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/report-success" element={<ReportSuccess />} />
             <Route path="/trends" element={<Trends />} />
+            <Route path="/news" element={<News />} />
             <Route path="/knowledge" element={<KnowledgeBase />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="*" element={<NotFound />} />
