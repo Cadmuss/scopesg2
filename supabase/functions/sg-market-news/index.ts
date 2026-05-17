@@ -23,7 +23,12 @@ serve(async (req) => {
 
     const url = new URL(req.url);
     const force = url.searchParams.get("refresh") === "1";
-    const queryKey = "sg-market-news-v1";
+
+    let body: { sector?: string } = {};
+    try { body = await req.json(); } catch { /* no body */ }
+    const sector = (body.sector || "").trim().slice(0, 80);
+
+    const queryKey = `sg-market-news-v2:${sector.toLowerCase() || "general"}`;
     const cutoff = new Date(Date.now() - CACHE_TTL_HOURS * 60 * 60 * 1000).toISOString();
 
     if (!force) {
@@ -36,13 +41,16 @@ serve(async (req) => {
         .limit(1)
         .maybeSingle();
       if (cached) {
-        return new Response(JSON.stringify({ ...cached.data, cachedAt: cached.created_at }), {
+        return new Response(JSON.stringify({ ...cached.data, cachedAt: cached.created_at, sector }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
 
     const today = new Date().toISOString().split("T")[0];
+    const sectorLine = sector
+      ? `The user runs a Singapore business in this sector: "${sector}". PERSONALIZE every item's predictedImpact and actionableAdvice for this sector specifically — use sector-relevant numbers, supply chains, customer behavior, regulators, and grants.`
+      : `The user has not specified a sector — keep analysis broadly useful for SG SMEs.`;
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -51,15 +59,24 @@ serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-2.5-pro",
         messages: [
           {
             role: "system",
-            content: `You are a senior Singapore market intelligence analyst. Today is ${today}. Curate the most recent and impactful global and Singapore news events that could shift SME markets — wars/geopolitics, supply chain disruptions, commodity shocks, tech/AI shifts, MAS or government policy, sector trends. ONLY cite reputable sources (Reuters, Bloomberg, Channel News Asia, The Straits Times, Business Times SG, Financial Times, MAS, MTI, Enterprise Singapore, IMDA, gov.sg). Provide concrete, actionable predicted market impact for Singapore SMEs. Never fabricate URLs — only cite source names with realistic article titles if exact URLs are not known.`,
+            content: `You are a senior Singapore market intelligence analyst writing on ${today}. Your job is to surface the genuinely most consequential CURRENT events that are shifting markets right now — wars, geopolitical conflicts, commodity/oil shocks, central bank moves, supply chain disruptions, tech/AI breakthroughs, MAS/MTI/IMDA policy changes, sector-specific shifts.
+
+CRITICAL RULES:
+- Be CURRENT. If there is an active war, major conflict (e.g. US–Iran, Russia–Ukraine, Middle East escalation), trade war, election shock, oil/shipping disruption, AI policy shift — these MUST appear. Do not return only soft policy news while major disruptors are happening.
+- COVERAGE: across the 10-12 items, include BOTH global disruptors AND Singapore-specific items. Cover Energy, Geopolitics, Supply Chain, Finance, Technology, Policy at minimum — do NOT leave Energy empty when oil/gas markets are moving.
+- Only cite reputable sources: Reuters, Bloomberg, Channel News Asia, The Straits Times, Business Times SG, Financial Times, AP, BBC, MAS, MTI, Enterprise Singapore, IMDA, gov.sg.
+- Never fabricate URLs. If unsure, use the publisher's section URL (e.g. https://www.reuters.com/world/) with a realistic article title.
+- Predictions must be concrete and quantified where possible (% moves, S$ impact, weeks of lead time).
+
+${sectorLine}`,
           },
           {
             role: "user",
-            content: `Give me 6-8 of the most consequential news items right now affecting Singapore's business environment, with predicted market shifts for SMEs.`,
+            content: `Give me 10-12 of the most consequential news items right now affecting Singapore's business environment. Make sure active conflicts and energy/oil shocks are represented if they exist today. Personalize predicted market shifts ${sector ? `for a Singapore ${sector} business` : "for SG SMEs broadly"}.`,
           },
         ],
         tools: [
@@ -71,7 +88,7 @@ serve(async (req) => {
               parameters: {
                 type: "object",
                 properties: {
-                  overview: { type: "string", description: "2-3 sentence summary of the current market climate for SG SMEs" },
+                  overview: { type: "string", description: "2-3 sentence summary of the current market climate, personalized to the user's sector if given" },
                   items: {
                     type: "array",
                     items: {
@@ -83,26 +100,31 @@ serve(async (req) => {
                           enum: ["Geopolitics", "Policy", "Technology", "Supply Chain", "Finance", "Energy", "Consumer", "Healthcare", "Real Estate"],
                         },
                         summary: { type: "string", description: "2-3 sentence neutral summary of what happened" },
-                        predictedImpact: { type: "string", description: "Predicted impact on Singapore SMEs/sectors" },
+                        predictedImpact: { type: "string", description: "Predicted impact, personalized to the user's sector when provided" },
                         affectedSectors: { type: "array", items: { type: "string" } },
                         sentiment: { type: "string", enum: ["positive", "negative", "neutral", "mixed"] },
                         severity: { type: "number", description: "1 (minor) to 5 (major)" },
-                        actionableAdvice: { type: "string", description: "One concrete action a SG SME should consider" },
+                        actionableAdvice: { type: "string", description: "One concrete sector-specific action the SG SME should consider" },
+                        analystQuestions: {
+                          type: "array",
+                          description: "3 sharp follow-up questions the user could ask the analyst about this story",
+                          items: { type: "string" },
+                        },
                         sources: {
                           type: "array",
                           items: {
                             type: "object",
                             properties: {
-                              name: { type: "string", description: "Publisher name e.g. Reuters" },
-                              title: { type: "string", description: "Article title" },
-                              url: { type: "string", description: "URL if known, otherwise homepage of publisher" },
+                              name: { type: "string" },
+                              title: { type: "string" },
+                              url: { type: "string" },
                             },
                             required: ["name", "title", "url"],
                           },
                         },
-                        publishedApprox: { type: "string", description: "Approximate date e.g. 'This week', '2026-05-14'" },
+                        publishedApprox: { type: "string" },
                       },
-                      required: ["headline", "category", "summary", "predictedImpact", "affectedSectors", "sentiment", "severity", "actionableAdvice", "sources", "publishedApprox"],
+                      required: ["headline", "category", "summary", "predictedImpact", "affectedSectors", "sentiment", "severity", "actionableAdvice", "analystQuestions", "sources", "publishedApprox"],
                     },
                   },
                   generatedAt: { type: "string" },
@@ -137,6 +159,7 @@ serve(async (req) => {
     const toolCall = aiJson.choices?.[0]?.message?.tool_calls?.[0];
     if (!toolCall) throw new Error("No tool call returned");
     const newsData = JSON.parse(toolCall.function.arguments);
+    newsData.sector = sector;
 
     await supabase.from("market_news_cache").insert({ query_key: queryKey, data: newsData });
     await supabase.from("market_news_cache").delete().eq("query_key", queryKey).lt("created_at", cutoff);
