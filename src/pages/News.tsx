@@ -1,13 +1,16 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Newspaper, RefreshCw, AlertCircle, ExternalLink, TrendingUp, TrendingDown, Minus, Filter } from "lucide-react";
+import { Newspaper, RefreshCw, AlertCircle, ExternalLink, TrendingUp, TrendingDown, Minus, Filter, MessageSquare, Sparkles } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 
 interface NewsItem {
   headline: string;
@@ -18,6 +21,7 @@ interface NewsItem {
   sentiment: "positive" | "negative" | "neutral" | "mixed";
   severity: number;
   actionableAdvice: string;
+  analystQuestions?: string[];
   sources: { name: string; title: string; url: string }[];
   publishedApprox: string;
 }
@@ -27,6 +31,7 @@ interface NewsData {
   items: NewsItem[];
   generatedAt: string;
   cachedAt?: string;
+  sector?: string;
 }
 
 const CATEGORIES = ["All", "Geopolitics", "Policy", "Technology", "Supply Chain", "Finance", "Energy", "Consumer", "Healthcare", "Real Estate"];
@@ -57,29 +62,53 @@ const severityBar = (n: number) => {
 };
 
 const News = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
   const [data, setData] = useState<NewsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("All");
+  const [sector, setSector] = useState("");
+  const [sectorInput, setSectorInput] = useState("");
 
-  const load = async (refresh = false) => {
+  // Fetch profile to personalize
+  useEffect(() => {
+    if (!user) return;
+    supabase
+      .from("profiles")
+      .select("business_type")
+      .eq("user_id", user.id)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.business_type) {
+          setSector(data.business_type);
+          setSectorInput(data.business_type);
+        }
+      });
+  }, [user]);
+
+  const load = async (refresh = false, sectorOverride?: string) => {
     setLoading(true);
     setError(null);
+    const useSector = sectorOverride ?? sector;
     try {
-      const { data: res, error: fnErr } = await supabase.functions.invoke("sg-market-news", {
-        body: {},
-        ...(refresh ? { headers: { "x-refresh": "1" } } : {}),
-      });
-      // supabase.functions.invoke doesn't easily forward query params; do a direct fetch on refresh
       if (refresh) {
         const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sg-market-news?refresh=1`;
         const r = await fetch(url, {
-          headers: { Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ sector: useSector }),
         });
         const j = await r.json();
         if (!r.ok) throw new Error(j.error || "Failed to load news");
         setData(j);
       } else {
+        const { data: res, error: fnErr } = await supabase.functions.invoke("sg-market-news", {
+          body: { sector: useSector },
+        });
         if (fnErr) throw fnErr;
         if ((res as { error?: string })?.error) throw new Error((res as { error: string }).error);
         setData(res as NewsData);
@@ -91,7 +120,18 @@ const News = () => {
     }
   };
 
-  useEffect(() => { load(false); }, []);
+  useEffect(() => {
+    load(false, sector);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sector]);
+
+  const askAnalyst = (item: NewsItem, question?: string) => {
+    const sectorCtx = sector ? ` for my ${sector} business in Singapore` : "";
+    const q = question
+      ? `About this news — "${item.headline}" (${item.category}, ${item.publishedApprox}):\n\n${question}${sectorCtx}.`
+      : `I want to dig into this news story${sectorCtx}.\n\n**Headline:** ${item.headline}\n**Category:** ${item.category}\n**Summary:** ${item.summary}\n**Predicted impact:** ${item.predictedImpact}\n\nGive me a deeper, Singapore-specific analysis: which sectors will move first, concrete numbers, what I should do in the next 30/60/90 days, and which government grants or schemes could offset the risk. Cite sources.`;
+    navigate("/chat", { state: { initialPrompt: q } });
+  };
 
   const items = (data?.items || []).filter(i => filter === "All" || i.category === filter);
   const updatedAt = data?.cachedAt || data?.generatedAt;
@@ -113,11 +153,12 @@ const News = () => {
                   News & Predicted Market Shifts
                 </h1>
                 <p className="text-primary-foreground/70 max-w-2xl">
-                  AI-curated global and Singapore news from reputable sources, with predicted impact on SME sectors. Auto-refreshed every 6 hours.
+                  AI-curated global and Singapore news from reputable sources, with predicted impact tailored to your sector. Auto-refreshed every 6 hours.
                 </p>
                 {updatedAt && (
                   <p className="text-primary-foreground/40 text-xs mt-2">
                     Last updated: {new Date(updatedAt).toLocaleString("en-SG")}
+                    {data?.sector && <> · personalized for <span className="text-accent">{data.sector}</span></>}
                   </p>
                 )}
               </div>
@@ -127,6 +168,39 @@ const News = () => {
               </Button>
             </div>
           </motion.div>
+
+          {/* Sector personalization */}
+          <Card className="bg-navy-light/20 border-accent/20 mb-6">
+            <CardContent className="pt-5 pb-5">
+              <div className="flex items-center gap-3 flex-wrap">
+                <Sparkles className="w-4 h-4 text-accent shrink-0" />
+                <span className="text-sm text-primary-foreground/80">Personalize for sector:</span>
+                <Input
+                  value={sectorInput}
+                  onChange={(e) => setSectorInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && setSector(sectorInput.trim())}
+                  placeholder="e.g. F&B, fintech, logistics, e-commerce"
+                  className="max-w-xs bg-navy-deep/40 border-navy-light/40 text-primary-foreground"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSector(sectorInput.trim())}
+                  disabled={loading || sectorInput.trim() === sector}
+                >
+                  Apply
+                </Button>
+                {sector && (
+                  <button
+                    onClick={() => { setSector(""); setSectorInput(""); }}
+                    className="text-xs text-primary-foreground/50 hover:text-primary-foreground underline"
+                  >
+                    clear
+                  </button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Overview */}
           {data?.overview && (
@@ -180,7 +254,7 @@ const News = () => {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.04 }}
                 >
-                  <Card className="bg-navy-light/20 border-navy-light/40 hover:border-accent/40 transition-colors h-full">
+                  <Card className="bg-navy-light/20 border-navy-light/40 hover:border-accent/40 transition-colors h-full flex flex-col">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between gap-2 mb-2">
                         <Badge variant="outline" className="text-accent border-accent/40 text-[10px]">
@@ -196,7 +270,7 @@ const News = () => {
                       </CardTitle>
                       <p className="text-xs text-primary-foreground/40 mt-1">{item.publishedApprox}</p>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-3 flex-1 flex flex-col">
                       <p className="text-sm text-primary-foreground/70 leading-relaxed">{item.summary}</p>
 
                       <div>
@@ -208,12 +282,16 @@ const News = () => {
                       </div>
 
                       <div className="border-l-2 border-accent/50 pl-3 py-1">
-                        <p className="text-[10px] uppercase tracking-wider text-accent mb-1">Predicted Market Shift</p>
+                        <p className="text-[10px] uppercase tracking-wider text-accent mb-1">
+                          {sector ? `Impact on ${sector}` : "Predicted Market Shift"}
+                        </p>
                         <p className="text-sm text-primary-foreground/80">{item.predictedImpact}</p>
                       </div>
 
                       <div className="bg-navy-deep/40 rounded p-3">
-                        <p className="text-[10px] uppercase tracking-wider text-accent mb-1">Action for SG SMEs</p>
+                        <p className="text-[10px] uppercase tracking-wider text-accent mb-1">
+                          Action {sector ? `for your ${sector} business` : "for SG SMEs"}
+                        </p>
                         <p className="text-sm text-primary-foreground/80">{item.actionableAdvice}</p>
                       </div>
 
@@ -227,8 +305,37 @@ const News = () => {
                         </div>
                       )}
 
+                      {/* Ask the analyst */}
+                      <div className="pt-2 border-t border-navy-light/30 space-y-2">
+                        <p className="text-[10px] uppercase tracking-wider text-accent flex items-center gap-1">
+                          <MessageSquare className="w-3 h-3" /> Ask the analyst
+                        </p>
+                        {item.analystQuestions && item.analystQuestions.length > 0 && (
+                          <div className="flex flex-wrap gap-1.5">
+                            {item.analystQuestions.slice(0, 3).map((q, k) => (
+                              <button
+                                key={k}
+                                onClick={() => askAnalyst(item, q)}
+                                className="text-[11px] text-left px-2 py-1 rounded-md bg-accent/10 hover:bg-accent/20 text-primary-foreground/80 border border-accent/20 transition-colors"
+                              >
+                                {q}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full border-accent/40 text-accent hover:bg-accent/10 hover:text-accent"
+                          onClick={() => askAnalyst(item)}
+                        >
+                          <MessageSquare className="w-3 h-3 mr-1.5" />
+                          Open in analyst chat
+                        </Button>
+                      </div>
+
                       {item.sources?.length > 0 && (
-                        <div className="pt-2 border-t border-navy-light/30">
+                        <div className="pt-2 border-t border-navy-light/30 mt-auto">
                           <p className="text-[10px] uppercase tracking-wider text-primary-foreground/50 mb-1.5">Sources</p>
                           <ul className="space-y-1">
                             {item.sources.map((s, k) => (
