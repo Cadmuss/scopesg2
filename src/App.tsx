@@ -9,6 +9,7 @@ import Chat from "./pages/Chat";
 import Marketplace from "./pages/Marketplace";
 import ReportSuccess from "./pages/ReportSuccess";
 import Trends from "./pages/Trends";
+import News from "./pages/News";
 import Auth from "./pages/Auth";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import ResetPassword from "./pages/ResetPassword";
