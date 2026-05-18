@@ -13,6 +13,7 @@ import News from "./pages/News";
 import Auth from "./pages/Auth";
 import KnowledgeBase from "./pages/KnowledgeBase";
 import ResetPassword from "./pages/ResetPassword";
+import Privacy from "./pages/Privacy";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
