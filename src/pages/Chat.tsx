@@ -297,7 +297,7 @@ const Chat = () => {
         )}
 
         {/* Main chat */}
-        <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full relative">
+        <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full relative">
           {user && (
             <button
               onClick={() => setSidebarOpen((v) => !v)}
