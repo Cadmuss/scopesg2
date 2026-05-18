@@ -136,9 +136,11 @@ const Chat = () => {
   const assistantRef = useRef("");
   const messageCountRef = useRef(0);
 
+  const SNAPSHOT_MARKER = "<!-- SNAPSHOT_READY -->";
   const snapshotDelivered = messages.some(
-    (m) => m.role === "assistant" && m.content.includes("Premium Business Report")
+    (m) => m.role === "assistant" && m.content.includes(SNAPSHOT_MARKER)
   );
+  const stripMarker = (s: string) => s.replace(SNAPSHOT_MARKER, "").trimEnd();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -295,7 +297,7 @@ const Chat = () => {
         )}
 
         {/* Main chat */}
-        <div className="flex-1 flex flex-col max-w-4xl mx-auto w-full relative">
+        <div className="flex-1 flex flex-col max-w-5xl mx-auto w-full relative">
           {user && (
             <button
               onClick={() => setSidebarOpen((v) => !v)}
@@ -306,7 +308,7 @@ const Chat = () => {
             </button>
           )}
 
-          <div className="flex-1 overflow-y-auto px-4 py-6 space-y-4">
+          <div className="flex-1 overflow-y-auto px-4 md:px-6 py-6 space-y-6">
             {messages.length === 0 && (
               <div className="flex flex-col items-center justify-center h-full min-h-[60vh] text-center">
                 <div className="w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-4 animate-float">
@@ -372,18 +374,44 @@ const Chat = () => {
                     </div>
                   )}
                   <div
-                    className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                    className={`rounded-2xl px-5 py-4 text-sm leading-relaxed ${
                       msg.role === "user"
-                        ? "bg-navy text-primary-foreground rounded-br-md"
-                        : "bg-card border border-border text-foreground rounded-bl-md"
+                        ? "max-w-[75%] bg-navy text-primary-foreground rounded-br-md"
+                        : "max-w-[92%] w-full bg-card border border-border text-foreground rounded-bl-md shadow-[var(--shadow-card)]"
                     }`}
                   >
                     {msg.role === "assistant" ? (
-                      <div className="prose prose-sm dark:prose-invert max-w-none prose-headings:text-foreground prose-p:text-foreground prose-li:text-foreground prose-strong:text-foreground prose-table:text-xs">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]}>{msg.content}</ReactMarkdown>
+                      <div className="report-content text-[0.92rem]">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            h1: ({ children }) => <h1 className="font-display text-xl font-bold text-foreground mt-2 mb-3 pb-2 border-b border-border/60">{children}</h1>,
+                            h2: ({ children }) => <h2 className="font-display text-lg font-bold text-foreground mt-5 mb-3">{children}</h2>,
+                            h3: ({ children }) => <h3 className="font-display text-base font-semibold text-foreground mt-4 mb-2">{children}</h3>,
+                            p: ({ children }) => <p className="my-2.5 leading-relaxed text-foreground">{children}</p>,
+                            hr: () => <div className="my-5 border-t border-accent/20" />,
+                            ul: ({ children }) => <ul className="my-2.5 space-y-1.5 list-disc pl-5">{children}</ul>,
+                            ol: ({ children }) => <ol className="my-2.5 space-y-1.5 list-decimal pl-5">{children}</ol>,
+                            li: ({ children }) => <li className="text-foreground leading-relaxed">{children}</li>,
+                            strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+                            a: ({ children, href }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent/80 underline underline-offset-2">{children}</a>,
+                            blockquote: ({ children }) => <blockquote className="border-l-4 border-accent/40 pl-4 my-3 italic text-muted-foreground bg-accent/5 py-2 pr-3 rounded-r-lg">{children}</blockquote>,
+                            table: ({ children }) => (
+                              <div className="my-4 overflow-x-auto rounded-lg border border-border/60">
+                                <table className="w-full text-xs">{children}</table>
+                              </div>
+                            ),
+                            thead: ({ children }) => <thead className="bg-primary/5">{children}</thead>,
+                            th: ({ children }) => <th className="px-3 py-2 text-left font-display font-semibold text-foreground text-[0.7rem] uppercase tracking-wider border-b border-border/60">{children}</th>,
+                            td: ({ children }) => <td className="px-3 py-2 align-top text-foreground border-b border-border/30">{children}</td>,
+                            code: ({ children }) => <code className="px-1.5 py-0.5 rounded bg-muted text-foreground text-xs">{children}</code>,
+                          }}
+                        >
+                          {stripMarker(msg.content)}
+                        </ReactMarkdown>
                       </div>
                     ) : (
-                      <p>{msg.content}</p>
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
                     )}
                   </div>
                   {msg.role === "user" && (
