@@ -136,9 +136,11 @@ const Chat = () => {
   const assistantRef = useRef("");
   const messageCountRef = useRef(0);
 
+  const SNAPSHOT_MARKER = "<!-- SNAPSHOT_READY -->";
   const snapshotDelivered = messages.some(
-    (m) => m.role === "assistant" && m.content.includes("Premium Business Report")
+    (m) => m.role === "assistant" && m.content.includes(SNAPSHOT_MARKER)
   );
+  const stripMarker = (s: string) => s.replace(SNAPSHOT_MARKER, "").trimEnd();
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
