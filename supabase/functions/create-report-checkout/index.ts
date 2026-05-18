@@ -28,6 +28,23 @@ serve(async (req) => {
     // Get consultation data from request body
     const { consultationMessages } = await req.json();
 
+    // Gate: require a completed snapshot. The chatbot emits "<!-- SNAPSHOT_READY -->"
+    // only after collecting all 5 intake answers and producing the full snapshot.
+    const hasSnapshot = Array.isArray(consultationMessages) &&
+      consultationMessages.some(
+        (m: { role: string; content: string }) =>
+          m?.role === "assistant" && typeof m.content === "string" && m.content.includes("<!-- SNAPSHOT_READY -->")
+      );
+    if (!hasSnapshot) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Please complete the consultation first. The analyst needs your business idea, audience, budget, experience, and timeline before generating a Premium Report.",
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY") || "", {
       apiVersion: "2025-08-27.basil",
     });
