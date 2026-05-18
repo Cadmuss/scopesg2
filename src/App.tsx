@@ -34,6 +34,7 @@ const App = () => (
             <Route path="/trends" element={<Trends />} />
             <Route path="/news" element={<News />} />
             <Route path="/knowledge" element={<KnowledgeBase />} />
+            <Route path="/privacy" element={<Privacy />} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
