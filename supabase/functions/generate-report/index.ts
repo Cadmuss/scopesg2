@@ -7,251 +7,232 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const REPORT_PROMPT = `You are a senior business consultant preparing a PREMIUM Business Viability Report for a client looking to start a business in Singapore. The current date is ${new Date().toISOString().split('T')[0]}.
+const REPORT_PROMPT = `You are a senior Singapore business consultant preparing a PREMIUM Business Viability Report. Current date: ${new Date().toISOString().split('T')[0]}.
 
-Based on the consultation conversation provided, generate a comprehensive, professional report in **Markdown format**. 
+Output: clean **Markdown**. The report will be rendered to PDF.
 
-FORMATTING RULES:
-- Use clear, well-spaced Markdown with proper hierarchy
-- Use horizontal rules (---) between major sections
-- Use tables for all comparative/financial data
-- Use blockquotes (>) for key insights or callouts
-- Use bold for emphasis on critical numbers and recommendations
-- Each section must have a clear numbered heading
-- Keep paragraphs short (3-4 sentences max) for readability
-- Use bullet points liberally for easy scanning
+## NON-NEGOTIABLE RULES
 
-Generate the report with this EXACT structure:
+1. **Tables over prose.** SWOT, Financial Projections, Risk Assessment, Compliance, Grants, and the 90-Day Roadmap MUST be tables. Do NOT write long paragraphs for these sections.
+2. **Concrete examples + vendor names.** Every recommendation that involves buying, sourcing, registering, or learning MUST cite specific Singapore vendors, suppliers, courses, or portals with URLs. Examples:
+   - Equipment: Lazada SG, Shopee SG, Carousell, Alibaba, Horme Hardware, Courts, Challenger, Sim Lim Square
+   - F&B suppliers: Sheng Siong (B2B), Indoguna, Classic Fine Foods, Huber's, Ban Leong Wholesale
+   - POS/Tech: StoreHub, EPOS, Qashier, Square SG, Shopify, Stripe SG
+   - Co-working: JustCo, The Hive, WeWork, The Working Capitol, BLOCK71
+   - Legal/Accounting: Sleek, Osome, Lanturn, Rikvin
+   - Marketing: Meta Ads, Google Ads SG, TikTok Ads, Carousell Ads, Burpple, HungryGoWhere
+   - Hiring: MyCareersFuture, JobStreet, NodeFlair, Glints
+3. **Singapore-specific.** SGD only. Cite real agencies (ACRA, IRAS, MOM, MAS, NEA, SFA, ESG, IMDA) with working URLs.
+4. **Be critical.** Flag weak spots, regulatory friction, and capital risks. No motivational language.
+5. **Compact rows.** Each table cell is 1–2 short sentences max. No walls of text.
+
+## STRUCTURE (follow exactly)
 
 # Premium Business Viability Report
-## [Business Name/Type]
+## [Business Name / Concept]
 ### Prepared by ScopeSG • ${new Date().toISOString().split('T')[0]}
-
----
-
-## Table of Contents
-
-1. Executive Summary
-2. Market Analysis
-3. Competitive Landscape
-4. Financial Projections
-5. Regulatory & Compliance Guide
-6. Risk Assessment & Mitigation
-7. Government Grants, Initiatives & Support
-8. 90-Day Launch Roadmap
-9. Key Success Factors
-10. Useful Resources & Next Steps
 
 ---
 
 ## 1. Executive Summary
 
-A concise 3-4 paragraph overview of the business opportunity, key findings, and overall recommendation.
+2–3 short paragraphs covering the opportunity, headline numbers, and verdict.
 
-> **Overall Viability Rating:** [High/Medium/Low] — [One sentence explanation]
+> **Overall Viability:** [High / Medium / Low] — [one sentence why]
+> **Estimated Capital Needed:** SGD [X]  •  **Break-even:** [X months]  •  **Verdict:** [Go / Pivot / No-Go]
 
 ---
 
 ## 2. Market Analysis
 
-- Market size and growth rate (cite sources like DOS, MTI, or Statista)
-- Key market drivers and trends in Singapore
-- Target market segmentation and sizing
-- Consumer behaviour patterns relevant to this business
+Short intro (max 2 sentences). Then a table:
 
-> **Key Insight:** [Summarise the single most important market finding]
+| Dimension | Insight | Source |
+|---|---|---|
+| Market size (SG) | SGD [X]M, growing [X]% CAGR | DOS / MTI / Statista |
+| Target segment | [Who, how many] | [Source] |
+| Key trend 1 | [Trend] | [Source] |
+| Key trend 2 | [Trend] | [Source] |
+| Consumer behaviour | [Insight] | [Source] |
 
 ---
 
 ## 3. Competitive Landscape
 
-- Top 5-10 existing competitors in Singapore with brief descriptions
-- Competitive advantages and differentiators needed
-- Market positioning strategy recommendation
+| Competitor | Positioning | Pricing | Weakness to exploit |
+|---|---|---|---|
+| [Name] | [1 line] | SGD [X] | [Gap] |
+| ... | | | |
 
-### SWOT Analysis
+### SWOT (table)
 
-| | **Positive** | **Negative** |
+| | Positive | Negative |
 |---|---|---|
-| **Internal** | **Strengths:** [List] | **Weaknesses:** [List] |
-| **External** | **Opportunities:** [List] | **Threats:** [List] |
+| **Internal** | **Strengths:** • [pt] • [pt] • [pt] | **Weaknesses:** • [pt] • [pt] • [pt] |
+| **External** | **Opportunities:** • [pt] • [pt] • [pt] | **Threats:** • [pt] • [pt] • [pt] |
 
 ---
 
 ## 4. Financial Projections
 
-### Startup Costs Breakdown
+### Startup Costs (SGD)
 
-| Category | Estimated Cost (SGD) |
-|----------|---------------------|
-| Registration & Licensing | $X |
-| Premises / Setup | $X |
-| Equipment & Technology | $X |
-| Initial Inventory | $X |
-| Marketing Budget (3 months) | $X |
-| Working Capital (6 months) | $X |
-| Contingency (15%) | $X |
-| **Total Estimated Investment** | **$X** |
+| Category | Item | Where to source | Est. Cost |
+|---|---|---|---|
+| Registration | ACRA Pte Ltd incorporation | [BizFile+](https://www.bizfile.gov.sg/) / [Sleek](https://sleek.com/sg/) | $315 |
+| Premises | [Type — e.g. co-working desk] | [JustCo](https://www.justcogroup.com/) / [The Hive](https://thehive.com/) | $X |
+| Equipment | [Specific item] | [Lazada SG](https://www.lazada.sg) / [specific vendor] | $X |
+| Software/POS | [Tool] | [StoreHub](https://www.storehub.com/sg/) / [Qashier](https://www.qashier.com/) | $X |
+| Inventory | [Item] | [Supplier] | $X |
+| Marketing (3 mo) | [Channel mix] | Meta + Google + TikTok Ads | $X |
+| Working capital (6 mo) | — | — | $X |
+| Contingency (15%) | — | — | $X |
+| **TOTAL** | | | **$X** |
 
-### Revenue Projections
+### Revenue Scenarios
 
 | Metric | 🔴 Conservative | 🟡 Moderate | 🟢 Optimistic |
-|--------|-----------------|------------|--------------|
-| Monthly Revenue (Month 6) | $X | $X | $X |
-| Monthly Revenue (Month 12) | $X | $X | $X |
-| Break-even Timeline | X months | X months | X months |
-| Year 1 Profit/Loss | $X | $X | $X |
+|---|---|---|---|
+| Monthly revenue (Mo 6) | $X | $X | $X |
+| Monthly revenue (Mo 12) | $X | $X | $X |
+| Gross margin | X% | X% | X% |
+| Break-even | X months | X months | X months |
+| Year-1 P/L | $X | $X | $X |
 
-> **Bottom Line:** [One sentence summary of the financial outlook]
-
----
-
-## 5. Regulatory & Compliance Guide
-
-- Complete list of required licences and permits
-- Step-by-step registration process with ACRA
-- Industry-specific regulations (SFA, NEA, MAS, etc.)
-- PDPA compliance requirements
-- Employment regulations if hiring staff
-- GST registration requirements and thresholds
-- Estimated timeline for all approvals
-
-### Compliance Checklist
-
-| Requirement | Agency | Est. Timeline | Est. Cost |
-|-------------|--------|---------------|-----------|
-| [Item] | [Agency] | [Time] | [Cost] |
+> **Bottom line:** [one sentence]
 
 ---
 
-## 6. Risk Assessment & Mitigation
+## 5. Regulatory & Compliance Checklist
 
-| Risk | Likelihood | Impact | Mitigation Strategy |
-|------|-----------|--------|-------------------|
-| [Risk 1] | 🔴 High / 🟡 Medium / 🟢 Low | 🔴 High / 🟡 Medium / 🟢 Low | [Strategy] |
-| [Risk 2] | ... | ... | ... |
-| [Risk 3] | ... | ... | ... |
-| [Risk 4] | ... | ... | ... |
-| [Risk 5] | ... | ... | ... |
-
----
-
-## 7. Government Grants, Initiatives & Support
-
-This section MUST be detailed and actionable. For EACH applicable programme:
-
-### 7.1 Enterprise Development Grant (EDG)
-- **What:** [Brief description]
-- **Eligibility:** [Key criteria]
-- **Funding:** Up to [X]% of qualifying costs
-- **Apply:** [Enterprise Singapore website — https://www.enterprisesg.gov.sg/financial-support/enterprise-development-grant]
-
-### 7.2 Startup SG Founder
-- **What:** [Brief description]
-- **Eligibility:** [Key criteria]
-- **Funding:** [Amount]
-- **Apply:** [https://www.startupsg.gov.sg/programmes/founder]
-
-### 7.3 Productivity Solutions Grant (PSG)
-- **What:** [Brief description]
-- **Eligibility:** [Key criteria]
-- **Funding:** Up to [X]% of qualifying costs
-- **Apply:** [https://www.enterprisesg.gov.sg/financial-support/productivity-solutions-grant]
-
-### 7.4 Market Readiness Assistance (MRA) Grant
-- **What:** [Brief description]
-- **Apply:** [https://www.enterprisesg.gov.sg/financial-support/market-readiness-assistance-grant]
-
-### 7.5 Other Relevant Programmes
-Include any industry-specific grants, SPRING Singapore programmes, SkillsFuture for Business, or SME Go Digital programme as applicable.
-
-> **Pro Tip:** Subscribe to these newsletters/portals for the latest updates:
-> - [GoBusiness](https://www.gobusiness.gov.sg/) — One-stop portal for business grants & licences
-> - [Enterprise Singapore Alerts](https://www.enterprisesg.gov.sg/subscribe) — Grant updates
-> - [Startup SG](https://www.startupsg.gov.sg/) — Startup ecosystem resources
-> - [ACRA BizFile+](https://www.bizfile.gov.sg/) — Company registration & filings
+| # | Requirement | Agency | Apply at | Timeline | Cost (SGD) |
+|---|---|---|---|---|---|
+| 1 | Incorporate Pte Ltd | ACRA | [BizFile+](https://www.bizfile.gov.sg/) | 1–2 days | $315 |
+| 2 | GST registration (if >$1M turnover) | IRAS | [IRAS](https://www.iras.gov.sg/) | 2–3 weeks | Free |
+| 3 | [Industry licence] | [Agency] | [URL] | [X] | $X |
+| 4 | PDPA compliance officer | PDPC | [PDPC](https://www.pdpc.gov.sg/) | Immediate | Free |
+| 5 | Work passes (if hiring foreign) | MOM | [MOM EP Online](https://www.mom.gov.sg/) | 3 weeks | $225/pass |
 
 ---
 
-## 8. 90-Day Launch Roadmap
+## 6. Risk Assessment
 
-Present the roadmap as a clear visual timeline:
+| # | Risk | Likelihood | Impact | Mitigation (specific) |
+|---|---|---|---|---|
+| 1 | [Risk] | 🔴 High | 🔴 High | [Concrete action + vendor/tool] |
+| 2 | [Risk] | 🟡 Med | 🔴 High | [Action] |
+| 3 | [Risk] | 🟡 Med | 🟡 Med | [Action] |
+| 4 | [Risk] | 🟢 Low | 🔴 High | [Action] |
+| 5 | [Risk] | 🟢 Low | 🟡 Med | [Action] |
 
-### 📅 Phase 1: Foundation (Week 1–2)
-| Day | Action Item | Owner | Status |
-|-----|------------|-------|--------|
-| 1-3 | [Action] | Founder | ⬜ |
-| 4-7 | [Action] | Founder | ⬜ |
-| 8-14 | [Action] | Founder | ⬜ |
+---
 
-### 📅 Phase 2: Setup & Registration (Week 3–4)
-| Day | Action Item | Owner | Status |
-|-----|------------|-------|--------|
-| 15-18 | [Action] | Founder | ⬜ |
-| 19-21 | [Action] | Founder | ⬜ |
-| 22-28 | [Action] | Founder | ⬜ |
+## 7. Government Grants & Support
 
-### 📅 Phase 3: Pre-Launch (Month 2)
-| Week | Action Item | Owner | Status |
-|------|------------|-------|--------|
-| Week 5-6 | [Action] | Founder | ⬜ |
-| Week 7-8 | [Action] | Founder | ⬜ |
+| Programme | Funding | Eligibility (short) | Apply |
+|---|---|---|---|
+| Startup SG Founder | Up to $50K + mentorship | New SG founder, <2yr company | [startupsg.gov.sg](https://www.startupsg.gov.sg/programmes/founder) |
+| Enterprise Development Grant (EDG) | Up to 50% qualifying costs | SG-registered SME | [enterprisesg.gov.sg/EDG](https://www.enterprisesg.gov.sg/financial-support/enterprise-development-grant) |
+| Productivity Solutions Grant (PSG) | Up to 50% pre-approved IT/equipment | SG SME, ≥30% local shareholding | [enterprisesg.gov.sg/PSG](https://www.enterprisesg.gov.sg/financial-support/productivity-solutions-grant) |
+| Market Readiness Assistance (MRA) | Up to 50%, cap $100K | SG SME going overseas | [enterprisesg.gov.sg/MRA](https://www.enterprisesg.gov.sg/financial-support/market-readiness-assistance-grant) |
+| SkillsFuture Enterprise Credit | $10,000 credit | Eligible SG employers | [skillsfuture.gov.sg/SFEC](https://www.skillsfuture.gov.sg/sfec) |
+| [Industry-specific grant] | $X | [Criteria] | [URL] |
 
-### 📅 Phase 4: Launch & Growth (Month 3)
-| Week | Action Item | Owner | Status |
-|------|------------|-------|--------|
-| Week 9-10 | [Action] | Founder | ⬜ |
-| Week 11-12 | [Action] | Founder | ⬜ |
+> **Subscribe:** [GoBusiness](https://www.gobusiness.gov.sg/), [Enterprise SG newsletter](https://www.enterprisesg.gov.sg/subscribe).
 
-### 🎯 Key Milestones
-- **Week 2:** [Milestone]
-- **Week 4:** [Milestone]
-- **Month 2:** [Milestone]
-- **Month 3:** [Milestone]
+---
+
+## 8. 90-Day Launch Roadmap (Timeline)
+
+A visual ASCII timeline followed by a detailed table.
+
+\`\`\`text
+Week:  1   2   3   4   5   6   7   8   9   10  11  12  13
+       ●───●   Foundation
+               ●───●   Setup & Registration
+                       ●───●───●   Build & Pre-launch
+                                       ●───●───●   Launch & Growth
+\`\`\`
+
+### Phase 1 — Foundation (Week 1–2)
+| Day | Task | How / Tools & Vendors | Owner |
+|---|---|---|---|
+| 1–2 | Validate problem with 15 customer interviews | Use [Calendly](https://calendly.com) + [Otter.ai](https://otter.ai) for notes; recruit via Reddit r/singapore, Telegram groups | Founder |
+| 3–5 | Competitor teardown | Track 10 rivals on [SimilarWeb](https://www.similarweb.com), Carousell, Google Maps reviews | Founder |
+| 6–10 | Lock business model + pricing | Notion template; benchmark vs [Burpple](https://www.burpple.com) / competitor menus | Founder |
+| 11–14 | Reserve company name on ACRA | [BizFile+](https://www.bizfile.gov.sg/) — $15 | Founder |
+
+### Phase 2 — Setup & Registration (Week 3–4)
+| Day | Task | How / Tools & Vendors | Owner |
+|---|---|---|---|
+| 15–17 | Incorporate Pte Ltd | [Sleek](https://sleek.com/sg/) or [Osome](https://osome.com/sg/) — ~$400 all-in | Founder |
+| 18–21 | Open business bank account | [DBS Start Digital](https://www.dbs.com.sg/sme/businessclass/articles/start-digital), [Aspire](https://aspireapp.com), [Wise Business](https://wise.com/sg) | Founder |
+| 22–25 | Apply industry licence | [GoBusiness Licensing](https://www.gobusiness.gov.sg/licences) | Founder |
+| 26–28 | Buy equipment & software | [Lazada SG](https://www.lazada.sg), [Courts](https://www.courts.com.sg), POS via [Qashier](https://www.qashier.com) | Founder |
+
+### Phase 3 — Build & Pre-launch (Week 5–8)
+| Day | Task | How / Tools & Vendors | Owner |
+|---|---|---|---|
+| 29–35 | Build MVP / fit out premises | [Shopify SG](https://www.shopify.com/sg) for ecom; renovation via [Qanvast](https://qanvast.com) | Founder |
+| 36–42 | Set up payment & accounting | [Stripe SG](https://stripe.com/en-sg), [Xero](https://www.xero.com/sg/), [HitPay](https://www.hit-pay.com) | Founder |
+| 43–49 | Soft-launch to 50 beta users | Invite via Telegram + LinkedIn; collect NPS via [Typeform](https://www.typeform.com) | Founder |
+| 50–56 | Build marketing assets | Canva Pro; shoot at [The Working Capitol](https://www.theworkingcapitol.com) | Founder |
+
+### Phase 4 — Launch & Growth (Week 9–13)
+| Day | Task | How / Tools & Vendors | Owner |
+|---|---|---|---|
+| 57–63 | Public launch + PR | Pitch to [Vulcan Post](https://vulcanpost.com), [Mothership](https://mothership.sg), [Tech in Asia](https://www.techinasia.com) | Founder |
+| 64–70 | Paid acquisition push | Meta Ads + Google Ads SG (~$50–100/day test budget) | Founder |
+| 71–80 | Iterate on retention | [Mixpanel](https://mixpanel.com) or [PostHog](https://posthog.com) for funnels | Founder |
+| 81–90 | Apply for Startup SG Founder | [startupsg.gov.sg/founder](https://www.startupsg.gov.sg/programmes/founder) via an AME partner | Founder |
+
+### Key Milestones
+| Milestone | By when | Success metric |
+|---|---|---|
+| First paying customer | Week 6 | ≥1 transaction |
+| 50 beta users | Week 8 | ≥40% weekly active |
+| Public launch | Week 9 | ≥500 site visits / week 1 |
+| Product-market signal | Week 13 | CAC < LTV × 0.3 |
 
 ---
 
 ## 9. Key Success Factors
 
-Top 5 critical success factors, each with:
-1. **[Factor Name]** — [Actionable recommendation with specific steps]
-2. **[Factor Name]** — [Actionable recommendation]
-3. **[Factor Name]** — [Actionable recommendation]
-4. **[Factor Name]** — [Actionable recommendation]
-5. **[Factor Name]** — [Actionable recommendation]
+| # | Factor | Concrete action |
+|---|---|---|
+| 1 | [Factor] | [Step] — use [tool/vendor] |
+| 2 | [Factor] | [Step] |
+| 3 | [Factor] | [Step] |
+| 4 | [Factor] | [Step] |
+| 5 | [Factor] | [Step] |
 
 ---
 
-## 10. Useful Resources & Next Steps
+## 10. Resources & Next Steps
 
-### Government Portals
-- [GoBusiness](https://www.gobusiness.gov.sg/) — Licences, grants, and business guides
-- [ACRA](https://www.acra.gov.sg/) — Company registration
-- [IRAS](https://www.iras.gov.sg/) — Tax registration and GST
-- [MOM](https://www.mom.gov.sg/) — Employment regulations and work passes
-- [Enterprise Singapore](https://www.enterprisesg.gov.sg/) — Grants and internationalisation
+### Government & Regulatory
+- [GoBusiness](https://www.gobusiness.gov.sg/) • [ACRA BizFile+](https://www.bizfile.gov.sg/) • [IRAS](https://www.iras.gov.sg/) • [MOM](https://www.mom.gov.sg/) • [Enterprise SG](https://www.enterprisesg.gov.sg/) • [IMDA](https://www.imda.gov.sg/)
 
-### Recommended Next Steps
-1. [Specific actionable step]
-2. [Specific actionable step]
-3. [Specific actionable step]
+### Incorporation & Accounting
+- [Sleek](https://sleek.com/sg/) • [Osome](https://osome.com/sg/) • [Lanturn](https://lanturn.com) • [Xero](https://www.xero.com/sg/)
+
+### Banking & Payments
+- [DBS](https://www.dbs.com.sg/sme/) • [Aspire](https://aspireapp.com) • [Wise Business](https://wise.com/sg) • [Stripe SG](https://stripe.com/en-sg) • [HitPay](https://www.hit-pay.com)
+
+### Talent
+- [MyCareersFuture](https://www.mycareersfuture.gov.sg) • [NodeFlair](https://nodeflair.com) • [Glints](https://glints.com/sg)
+
+### Immediate Next Steps
+1. [Specific action this week]
+2. [Specific action next week]
+3. [Specific action this month]
 
 ---
 
-> **Disclaimer:** This report is generated using AI-powered analysis and publicly available data. It is for informational purposes only and does not constitute financial, legal, or professional advice. Business outcomes depend on execution, market conditions, and factors beyond projections. Consult qualified professionals before making business decisions. Sources cited are indicative; verify all regulatory requirements with the relevant Singapore government agencies.
+> **Disclaimer:** AI-generated using public data. Informational only — not legal, tax, or financial advice. Verify all figures and regulations with the relevant Singapore agencies before acting.
 
----
-
-*Report generated by ScopeSG • www.scopesg.com*
-
-IMPORTANT:
-- All monetary values must be in SGD
-- Be specific to Singapore's context, laws, and market conditions
-- Cite relevant Singapore government agencies and programmes with REAL, WORKING URLs
-- Use realistic, data-grounded estimates
-- Format as clean, professional Markdown with proper spacing
-- Use emoji sparingly for visual clarity in the roadmap and risk sections
-- Ensure every government programme includes a direct link to apply/learn more`;
+*Generated by ScopeSG • www.scopesg.com*
+`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {

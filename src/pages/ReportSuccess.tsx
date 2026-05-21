@@ -9,6 +9,8 @@ import Footer from "@/components/Footer";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+// @ts-ignore - no types
+import html2pdf from "html2pdf.js";
 
 // Extract headings from markdown for table of contents
 const extractHeadings = (markdown: string) => {
@@ -67,18 +69,24 @@ const ReportSuccess = () => {
     generateReport();
   }, [orderId]);
 
-  const handleDownload = () => {
-    if (!report) return;
-    const blob = new Blob([report], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `ScopeSG-Business-Report-${orderId?.slice(0, 8)}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success("Report downloaded!");
+  const handleDownload = async () => {
+    if (!report || !reportRef.current) return;
+    toast.info("Preparing PDF...");
+    try {
+      const opt: any = {
+        margin: [12, 12, 14, 12],
+        filename: `ScopeSG-Business-Report-${orderId?.slice(0, 8)}.pdf`,
+        image: { type: "jpeg", quality: 0.96 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy", "avoid-all"] },
+      };
+      await html2pdf().set(opt).from(reportRef.current).save();
+      toast.success("PDF downloaded!");
+    } catch (e) {
+      console.error(e);
+      toast.error("PDF export failed. Try Print instead.");
+    }
   };
 
   const handlePrint = () => {
@@ -164,7 +172,7 @@ const ReportSuccess = () => {
               {/* Actions */}
               <div className="flex gap-3 mb-6 flex-wrap">
                 <Button variant="gold" onClick={handleDownload} className="gap-2">
-                  <Download className="w-4 h-4" /> Download Markdown
+                  <Download className="w-4 h-4" /> Download PDF
                 </Button>
                 <Button variant="outline" onClick={handlePrint} className="gap-2">
                   <FileText className="w-4 h-4" /> Print / Save as PDF
