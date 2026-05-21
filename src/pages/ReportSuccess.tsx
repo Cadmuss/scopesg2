@@ -73,8 +73,8 @@ const ReportSuccess = () => {
     if (!report || !reportRef.current) return;
     toast.info("Preparing PDF...");
     try {
-      const opt = {
-        margin: [12, 12, 14, 12] as [number, number, number, number],
+      const opt: any = {
+        margin: [12, 12, 14, 12],
         filename: `ScopeSG-Business-Report-${orderId?.slice(0, 8)}.pdf`,
         image: { type: "jpeg", quality: 0.96 },
         html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
