@@ -69,18 +69,24 @@ const ReportSuccess = () => {
     generateReport();
   }, [orderId]);
 
-  const handleDownload = () => {
-    if (!report) return;
-    const blob = new Blob([report], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `ScopeSG-Business-Report-${orderId?.slice(0, 8)}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success("Report downloaded!");
+  const handleDownload = async () => {
+    if (!report || !reportRef.current) return;
+    toast.info("Preparing PDF...");
+    try {
+      const opt = {
+        margin: [12, 12, 14, 12],
+        filename: `ScopeSG-Business-Report-${orderId?.slice(0, 8)}.pdf`,
+        image: { type: "jpeg", quality: 0.96 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+        pagebreak: { mode: ["css", "legacy", "avoid-all"] },
+      };
+      await html2pdf().set(opt).from(reportRef.current).save();
+      toast.success("PDF downloaded!");
+    } catch (e) {
+      console.error(e);
+      toast.error("PDF export failed. Try Print instead.");
+    }
   };
 
   const handlePrint = () => {
