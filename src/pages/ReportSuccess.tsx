@@ -9,6 +9,8 @@ import Footer from "@/components/Footer";
 import ReactMarkdown from "react-markdown";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+// @ts-ignore - no types
+import html2pdf from "html2pdf.js";
 
 // Extract headings from markdown for table of contents
 const extractHeadings = (markdown: string) => {
