@@ -172,7 +172,7 @@ const ReportSuccess = () => {
               {/* Actions */}
               <div className="flex gap-3 mb-6 flex-wrap">
                 <Button variant="gold" onClick={handleDownload} className="gap-2">
-                  <Download className="w-4 h-4" /> Download Markdown
+                  <Download className="w-4 h-4" /> Download PDF
                 </Button>
                 <Button variant="outline" onClick={handlePrint} className="gap-2">
                   <FileText className="w-4 h-4" /> Print / Save as PDF
