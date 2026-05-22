@@ -58,10 +58,21 @@ The report MUST visually resemble a McKinsey/BCG consulting deliverable, a VC in
 
 ## 1. Executive Summary
 
-2–3 short paragraphs covering the opportunity, headline numbers, and verdict.
+2–3 short paragraphs (≤60 words each) covering the opportunity, headline numbers, and verdict.
 
 > **Overall Viability:** [High / Medium / Low] — [one sentence why]
 > **Estimated Capital Needed:** SGD [X]  •  **Break-even:** [X months]  •  **Verdict:** [Go / Pivot / No-Go]
+
+### Investment Scorecard
+
+| Dimension | Score (1–5) | Rationale |
+|---|---|---|
+| Market opportunity | ★★★★☆ | [1 line] |
+| Founder–market fit | ★★★☆☆ | [1 line] |
+| Competitive moat | ★★☆☆☆ | [1 line] |
+| Regulatory clarity | ★★★★☆ | [1 line] |
+| Capital efficiency | ★★★☆☆ | [1 line] |
+| **Composite** | **X / 25** | [Verdict in one line] |
 
 ---
 
