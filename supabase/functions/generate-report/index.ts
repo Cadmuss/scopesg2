@@ -13,8 +13,28 @@ Output: clean **Markdown**. The report will be rendered to PDF.
 
 ## NON-NEGOTIABLE RULES
 
-1. **Tables over prose.** SWOT, Financial Projections, Risk Assessment, Compliance, Grants, and the 90-Day Roadmap MUST be tables. Do NOT write long paragraphs for these sections.
-2. **Concrete examples + vendor names.** Every recommendation that involves buying, sourcing, registering, or learning MUST cite specific Singapore vendors, suppliers, courses, or portals with URLs. Examples:
+The report MUST visually resemble a McKinsey/BCG consulting deliverable, a VC investment memorandum, or an accelerator evaluation brief. Reviewers should be able to scan it in 60 seconds.
+
+1. **Tables, matrices, and scorecards over prose.** SWOT, scoring, comparisons, financials, risk, compliance, grants, and the roadmap MUST be tables. Every major section (1–10) MUST contain at least one structured visual element — a table, scorecard, matrix, or framework block. No section may be prose-only.
+2. **Paragraph cap.** Maximum 2–3 short sentences per paragraph before you MUST break into a table, list, callout, or scorecard. No wall-of-text blocks. Never write a paragraph longer than ~60 words.
+3. **CRITICAL — GitHub-Flavoured Markdown table format (STRICT).** Tables only render correctly if:
+   - There is a BLANK LINE before the header row and after the closing row.
+   - The header row, the \`|---|---|\` separator, and EACH data row are on their OWN separate line.
+   - No row may be inlined with another row on the same line.
+   - Cells stay short (≤ 12 words). Use \`<br>\` for forced breaks inside a cell instead of running long.
+   - Never wrap a table in a code block.
+   
+   Correct:
+   \`\`\`
+   
+   | Competitor | Positioning | Pricing | Weakness |
+   |---|---|---|---|
+   | BYD E6 Rentals | Cost-effective EV | S$80–90/day | Driver autonomy |
+   | Toyota Prius Rentals | Trusted hybrid | S$95/day | Higher fuel cost |
+   
+   \`\`\`
+   Wrong (renders as plain text): rows concatenated on a single line, missing blank line before header, or separator merged with header.
+4. **Concrete examples + vendor names.** Every recommendation that involves buying, sourcing, registering, or learning MUST cite specific Singapore vendors, suppliers, courses, or portals with URLs. Examples:
    - Equipment: Lazada SG, Shopee SG, Carousell, Alibaba, Horme Hardware, Courts, Challenger, Sim Lim Square
    - F&B suppliers: Sheng Siong (B2B), Indoguna, Classic Fine Foods, Huber's, Ban Leong Wholesale
    - POS/Tech: StoreHub, EPOS, Qashier, Square SG, Shopify, Stripe SG
@@ -22,9 +42,11 @@ Output: clean **Markdown**. The report will be rendered to PDF.
    - Legal/Accounting: Sleek, Osome, Lanturn, Rikvin
    - Marketing: Meta Ads, Google Ads SG, TikTok Ads, Carousell Ads, Burpple, HungryGoWhere
    - Hiring: MyCareersFuture, JobStreet, NodeFlair, Glints
-3. **Singapore-specific.** SGD only. Cite real agencies (ACRA, IRAS, MOM, MAS, NEA, SFA, ESG, IMDA) with working URLs.
-4. **Be critical.** Flag weak spots, regulatory friction, and capital risks. No motivational language.
-5. **Compact rows.** Each table cell is 1–2 short sentences max. No walls of text.
+5. **Singapore-specific.** SGD only. Cite real agencies (ACRA, IRAS, MOM, MAS, NEA, SFA, ESG, IMDA) with working URLs.
+6. **Be critical.** Flag weak spots, regulatory friction, and capital risks. No motivational language.
+7. **Compact rows.** Each table cell is 1–2 short sentences max. No walls of text.
+8. **Use whitespace.** Place \`---\` horizontal rules between major sections and a blank line before every heading, list, table, and blockquote.
+9. **Add scorecards.** Use a 1–5 or 1–10 scorecard table in Executive Summary and Key Success Factors so verdicts are visually anchored.
 
 ## STRUCTURE (follow exactly)
 
@@ -36,10 +58,21 @@ Output: clean **Markdown**. The report will be rendered to PDF.
 
 ## 1. Executive Summary
 
-2–3 short paragraphs covering the opportunity, headline numbers, and verdict.
+2–3 short paragraphs (≤60 words each) covering the opportunity, headline numbers, and verdict.
 
 > **Overall Viability:** [High / Medium / Low] — [one sentence why]
 > **Estimated Capital Needed:** SGD [X]  •  **Break-even:** [X months]  •  **Verdict:** [Go / Pivot / No-Go]
+
+### Investment Scorecard
+
+| Dimension | Score (1–5) | Rationale |
+|---|---|---|
+| Market opportunity | ★★★★☆ | [1 line] |
+| Founder–market fit | ★★★☆☆ | [1 line] |
+| Competitive moat | ★★☆☆☆ | [1 line] |
+| Regulatory clarity | ★★★★☆ | [1 line] |
+| Capital efficiency | ★★★☆☆ | [1 line] |
+| **Composite** | **X / 25** | [Verdict in one line] |
 
 ---
 
