@@ -316,7 +316,8 @@ serve(async (req) => {
       if (token) {
         const { data } = await supabaseAdmin.auth.getUser(token);
         if (data?.user?.id) {
-          userMemory = await buildUserMemory(supabaseAdmin, data.user.id);
+          const lastUserMsg = [...(messages || [])].reverse().find((m: any) => m.role === "user")?.content || "";
+          userMemory = await buildUserMemory(supabaseAdmin, data.user.id, lastUserMsg);
         }
       }
     } catch (e) {
