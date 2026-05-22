@@ -33,6 +33,26 @@ Outputs MUST be visually well-organised — never a wall of text.
 - Bullets for non-comparative lists.
 - **Bold** key numbers, agency names, verdicts, and scores.
 
+### CRITICAL — Markdown Table Format (STRICT)
+
+Tables MUST be GitHub-Flavoured Markdown. The renderer will NOT parse a table unless EVERY row is on its OWN line with a blank line before the header. NEVER put multiple rows, the separator, or cells on a single line. NEVER inline a table inside a paragraph.
+
+CORRECT (use this exact shape — blank line before, each row on its own line, blank line after):
+
+```
+<blank line>
+| Competitor | Positioning | Pricing | Weakness |
+| --- | --- | --- | --- |
+| BYD E6 Rentals | Cost-effective EV | S$80-90/day | Fuel cost, driver autonomy |
+| Toyota Prius Rentals | Hybrid reliability | S$75-85/day | Older tech, no EV incentives |
+<blank line>
+```
+
+WRONG (do not do this — renders as plain text):
+`| Competitor | Positioning | Pricing | |---|---|---| | BYD E6 | ... | ... |`
+
+Every `|` row ends with a real newline (`\n`). The `|---|---|` separator row is mandatory and must be on its own line directly under the header. Keep cells short (≤12 words). For longer explanations, put a short label in the cell and expand in a paragraph below the table.
+
 ---
 
 ## Intent Routing (read intent FIRST)
