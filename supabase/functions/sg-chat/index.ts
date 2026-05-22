@@ -68,14 +68,26 @@ Not every message is an idea evaluation. Route by intent:
 
 ---
 
-## Memory & Continuity
+## Memory & Continuity — Use Relationally, Not Mechanically
 
-You receive a **User Memory** block with the user's profile and past startup ideas. Use it:
+You receive a **User Memory** block with the user's profile and past ideas, pre-classified into:
+- **Relevant Past Ideas** (same sector as the current question)
+- **Other Past Ideas** (background — do NOT cite unless directly applicable)
 
-- Reference past ideas explicitly when relevant: *"Compared to your previous fintech idea, this has lower regulatory risk but weaker monetisation."*
-- Flag recurring weaknesses or patterns (e.g. *"This is your third B2C idea targeting a <500k SG segment — same scale ceiling as before."*).
-- Recognise preferred industries; don't re-ask info already known.
-- Build continuity across sessions. Never treat a request as isolated when memory exists.
+**Rules — read carefully:**
+
+1. **Never dump or recite memory.** Do not list past ideas back to the user. Do not say "I see you previously worked on X, Y, Z." That is robotic.
+2. **Only invoke a past idea when it actually changes the analysis.** Ask: "Does referencing this change my recommendation, risk score, or next step?" If no — stay silent.
+3. **Prefer same-sector lessons.** If the user is exploring a second F&B concept, lean on what was learned the first time:
+   - Regulatory friction they already hit (SFA licence, NEA, halal cert, foreign worker quota).
+   - Cost assumptions that turned out wrong (rent PSF, manpower under MOM quotas).
+   - Risk patterns (low margin, perishables, location dependency).
+   - Experience gaps they self-identified.
+4. **Compare, don't repeat.** Good: *"Your previous café concept stalled on a 25% rent-to-revenue ratio in Orchard — this new hawker model fixes that but inherits the same manpower-quota issue under MOM's S-Pass framework."* Bad: *"You previously mentioned a café, a tuition centre, and a fintech app."*
+5. **Surface recurring weaknesses gently** (max once per response): *"This is your second consumer-subscription idea — last time the churn risk was the killer. Same risk applies here unless you've solved retention."*
+6. **Always highlight Singapore policy & regulatory implications** for the current idea — even when memory is empty. Name the agency (ACRA, SFA, NEA, MAS, MOM, IMDA, PDPA, MOH/HCSA, LTA, URA) and the specific licence, quota, or compliance rule. Policy callouts are non-negotiable.
+7. **Don't re-ask** info already in profile or relevant past ideas (budget, experience level, target market).
+8. **If no relevant past ideas exist**, do not mention memory at all. Just answer.
 
 ---
 
@@ -176,7 +188,34 @@ The HTML comment marker \`<!-- SNAPSHOT_READY -->\` MUST appear on the final lin
 - For news/geopolitics, lead with **Singapore SME impact**.
 - If uncertain about a regulation, label it as assumption and recommend verifying with the agency.`;
 
-async function buildUserMemory(supabaseAdmin: any, userId: string): Promise<string> {
+// Lightweight sector tagger — maps free-text snippets to canonical SG sectors
+const SECTOR_KEYWORDS: Record<string, string[]> = {
+  "F&B": ["f&b", "food", "restaurant", "cafe", "café", "bakery", "hawker", "kitchen", "catering", "bar", "drinks", "bubble tea", "coffee", "dining", "cloud kitchen", "sfa"],
+  "Retail / E-commerce": ["retail", "store", "shop", "e-commerce", "ecommerce", "shopify", "lazada", "shopee", "carousell", "dropship", "boutique"],
+  "Fintech": ["fintech", "payment", "wallet", "lending", "crypto", "trading", "neobank", "remit", "mas"],
+  "Health / Wellness": ["clinic", "health", "wellness", "fitness", "gym", "yoga", "tcm", "moh", "hcsa", "telehealth", "supplement"],
+  "Education": ["tuition", "edtech", "education", "coaching", "moe", "course", "tutoring", "kindergarten"],
+  "Logistics / Mobility": ["logistics", "delivery", "rental", "car", "ev", "fleet", "lta", "ride", "courier", "last mile"],
+  "B2B SaaS / Tech": ["saas", "platform", "ai tool", "b2b", "automation", "api", "developer", "crm", "erp"],
+  "Beauty / Personal Care": ["beauty", "salon", "spa", "nail", "skincare", "cosmetic", "hair"],
+  "Real Estate / PropTech": ["property", "real estate", "rental flat", "hdb", "proptech", "co-living", "ura"],
+  "Events / Creative": ["event", "wedding", "photography", "design studio", "agency", "media", "content"],
+};
+
+function tagSectors(text: string): string[] {
+  const lc = (text || "").toLowerCase();
+  const hits: string[] = [];
+  for (const [sector, kws] of Object.entries(SECTOR_KEYWORDS)) {
+    if (kws.some((k) => lc.includes(k))) hits.push(sector);
+  }
+  return hits;
+}
+
+async function buildUserMemory(
+  supabaseAdmin: any,
+  userId: string,
+  currentUserText: string
+): Promise<string> {
   try {
     const [{ data: profile }, { data: convos }] = await Promise.all([
       supabaseAdmin.from("profiles").select("*").eq("id", userId).maybeSingle(),
@@ -201,8 +240,9 @@ async function buildUserMemory(supabaseAdmin: any, userId: string): Promise<stri
       if (bits.length) lines.push("### Profile\n" + bits.map((b) => `- ${b}`).join("\n"));
     }
 
+    const currentSectors = tagSectors(currentUserText);
+
     if (convos && convos.length > 0) {
-      // Pull a snippet (first user message) from each past convo
       const ids = convos.map((c: any) => c.id);
       const { data: firstMsgs } = await supabaseAdmin
         .from("chat_messages")
@@ -214,19 +254,46 @@ async function buildUserMemory(supabaseAdmin: any, userId: string): Promise<stri
       const firstByConvo = new Map<string, string>();
       for (const m of firstMsgs || []) {
         if (!firstByConvo.has(m.conversation_id)) {
-          firstByConvo.set(m.conversation_id, (m.content || "").slice(0, 240));
+          firstByConvo.set(m.conversation_id, (m.content || "").slice(0, 320));
         }
       }
 
-      lines.push("### Past Startup Ideas / Conversations (most recent first)");
-      for (const c of convos) {
+      type Past = { title: string; tags: string; snippet: string; sectors: string[]; relevant: boolean };
+      const past: Past[] = convos.map((c: any) => {
         const snippet = firstByConvo.get(c.id) || "";
-        const tags = c.tags?.length ? ` [${c.tags.join(", ")}]` : "";
-        lines.push(`- **${c.title}**${tags} — ${snippet}`);
+        const sectors = Array.from(new Set([...tagSectors(c.title || ""), ...tagSectors(snippet)]));
+        const relevant =
+          currentSectors.length > 0 && sectors.some((s) => currentSectors.includes(s));
+        return {
+          title: c.title,
+          tags: c.tags?.length ? ` [${c.tags.join(", ")}]` : "",
+          snippet,
+          sectors,
+          relevant,
+        };
+      });
+
+      const relevant = past.filter((p) => p.relevant);
+      const background = past.filter((p) => !p.relevant);
+
+      if (currentSectors.length) {
+        lines.push(`### Current message sectors: ${currentSectors.join(", ")}`);
       }
-      lines.push(
-        "\nUse these to detect patterns, compare new ideas to past ones, and avoid re-asking known info."
-      );
+
+      if (relevant.length) {
+        lines.push("### Relevant Past Ideas (same sector — USE these for comparison, risk lessons, regulatory patterns)");
+        for (const p of relevant) {
+          lines.push(`- **${p.title}**${p.tags} _(sectors: ${p.sectors.join(", ")})_ — ${p.snippet}`);
+        }
+      }
+
+      if (background.length) {
+        lines.push("### Other Past Ideas (background only — DO NOT cite unless directly applicable)");
+        for (const p of background.slice(0, 6)) {
+          const s = p.sectors.length ? ` _(${p.sectors.join(", ")})_` : "";
+          lines.push(`- ${p.title}${s}`);
+        }
+      }
     } else {
       lines.push("_No prior ideas on file — this is the user's first session of substance._");
     }
@@ -261,7 +328,8 @@ serve(async (req) => {
       if (token) {
         const { data } = await supabaseAdmin.auth.getUser(token);
         if (data?.user?.id) {
-          userMemory = await buildUserMemory(supabaseAdmin, data.user.id);
+          const lastUserMsg = [...(messages || [])].reverse().find((m: any) => m.role === "user")?.content || "";
+          userMemory = await buildUserMemory(supabaseAdmin, data.user.id, lastUserMsg);
         }
       }
     } catch (e) {
