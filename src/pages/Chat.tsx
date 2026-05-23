@@ -566,29 +566,62 @@ const Chat = () => {
             </motion.div>
           )}
 
+          {!user && limitReached && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="px-4 py-3 border-t border-accent/30 bg-accent/10"
+            >
+              <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      You've used your {FREE_LIMIT} free messages
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Create a free account to keep chatting — your current conversation will be saved to your account. Close this tab without signing up and it will be cleared.
+                    </p>
+                  </div>
+                </div>
+                <Button variant="gold" onClick={() => navigate("/auth")} className="shrink-0">
+                  Create free account
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
           <div className="border-t border-border bg-card/80 backdrop-blur-sm p-4">
             <div className="flex gap-3 max-w-4xl mx-auto">
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                placeholder={user ? "Tell me about your business idea..." : "Sign in to start a saved consultation..."}
-                className="flex-1 bg-muted rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all"
+                placeholder={
+                  !user && limitReached
+                    ? "Create a free account to keep chatting…"
+                    : "Tell me about your business idea..."
+                }
+                disabled={!user && limitReached}
+                className="flex-1 bg-muted rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <Button
                 variant="gold"
                 size="icon"
                 className="h-12 w-12 rounded-xl shrink-0"
                 onClick={() => handleSend()}
-                disabled={!input.trim() || isLoading}
+                disabled={!input.trim() || isLoading || (!user && limitReached)}
               >
                 <Send className="w-5 h-5" />
               </Button>
             </div>
             <p className="text-xs text-muted-foreground text-center mt-2">
-              Chats auto-saved • Free viability snapshot • Premium PDF report: SGD $20
+              {user
+                ? "Chats auto-saved • Free viability snapshot • Premium PDF report: SGD $20"
+                : `Free preview • ${Math.max(0, FREE_LIMIT - messages.filter((m) => m.role === "user").length)} of ${FREE_LIMIT} free messages left • Sign up to save your chat`}
             </p>
           </div>
+
         </div>
       </div>
     </div>
