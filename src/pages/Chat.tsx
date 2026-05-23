@@ -89,6 +89,17 @@ async function streamChat({
   if (!resp.ok) {
     if (resp.status === 429) { onError("Rate limited — please wait a moment and try again."); return; }
     if (resp.status === 402) { onError("AI credits exhausted. Please try again later."); return; }
+    if (resp.status === 401) {
+      try {
+        const j = await resp.json();
+        onError(j?.message || "Please sign in to continue.");
+      } catch { onError("Please sign in to continue."); }
+      return;
+    }
+    if (resp.status === 400) {
+      try { const j = await resp.json(); onError(j?.error || "Invalid request."); } catch { onError("Invalid request."); }
+      return;
+    }
     onError("Something went wrong. Please try again."); return;
   }
   if (!resp.body) { onError("No response body"); return; }
@@ -173,20 +184,25 @@ const Chat = () => {
       const msg = (text || input).trim();
       if (!msg || isLoading) return;
 
-      if (!user) {
-        toast.error("Please sign in to chat — this lets us save your history.");
+      const FREE_LIMIT = 5;
+      const userTurnsSoFar = messages.filter((m) => m.role === "user").length;
+
+      if (!user && userTurnsSoFar >= FREE_LIMIT) {
+        toast.error(`You've used your ${FREE_LIMIT} free messages. Create a free account to keep going — your chat history will be saved.`);
         navigate("/auth");
         return;
       }
 
-      // Ensure conversation exists
+      // Ensure conversation exists (only for signed-in users — anon chats aren't persisted)
       let convId = activeId;
-      if (!convId) {
-        const title = msg.length > 60 ? msg.slice(0, 57) + "..." : msg;
-        const created = await history.createConversation(title);
-        if (!created) return;
-        convId = created.id;
-        setActiveId(convId);
+      if (user) {
+        if (!convId) {
+          const title = msg.length > 60 ? msg.slice(0, 57) + "..." : msg;
+          const created = await history.createConversation(title);
+          if (!created) return;
+          convId = created.id;
+          setActiveId(convId);
+        }
       }
 
       const userMsg: Message = { role: "user", content: msg };
@@ -196,14 +212,14 @@ const Chat = () => {
       setIsLoading(true);
       assistantRef.current = "";
 
-      // Persist user message
-      await history.saveMessage(convId, userMsg, messageCountRef.current);
-      messageCountRef.current += 1;
-
-      // Insert assistant placeholder
-      const assistantOrdering = messageCountRef.current;
-      await history.saveMessage(convId, { role: "assistant", content: "" }, assistantOrdering);
-      messageCountRef.current += 1;
+      // Persist user message (signed-in only)
+      if (user && convId) {
+        await history.saveMessage(convId, userMsg, messageCountRef.current);
+        messageCountRef.current += 1;
+        const assistantOrdering = messageCountRef.current;
+        await history.saveMessage(convId, { role: "assistant", content: "" }, assistantOrdering);
+        messageCountRef.current += 1;
+      }
 
       const upsert = (chunk: string) => {
         assistantRef.current += chunk;
