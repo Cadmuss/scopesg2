@@ -89,6 +89,17 @@ async function streamChat({
   if (!resp.ok) {
     if (resp.status === 429) { onError("Rate limited — please wait a moment and try again."); return; }
     if (resp.status === 402) { onError("AI credits exhausted. Please try again later."); return; }
+    if (resp.status === 401) {
+      try {
+        const j = await resp.json();
+        onError(j?.message || "Please sign in to continue.");
+      } catch { onError("Please sign in to continue."); }
+      return;
+    }
+    if (resp.status === 400) {
+      try { const j = await resp.json(); onError(j?.error || "Invalid request."); } catch { onError("Invalid request."); }
+      return;
+    }
     onError("Something went wrong. Please try again."); return;
   }
   if (!resp.body) { onError("No response body"); return; }
