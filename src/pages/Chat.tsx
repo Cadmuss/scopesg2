@@ -134,6 +134,9 @@ async function streamChat({
   onDone();
 }
 
+const ANON_KEY = "sg_anon_chat_messages";
+const FREE_LIMIT = 5;
+
 const Chat = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -146,9 +149,11 @@ const Chat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [limitReached, setLimitReached] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const assistantRef = useRef("");
   const messageCountRef = useRef(0);
+  const migrationRef = useRef(false);
 
   const SNAPSHOT_MARKER = "<!-- SNAPSHOT_READY -->";
   const snapshotDelivered = messages.some(
@@ -160,8 +165,34 @@ const Chat = () => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Load messages when active conversation changes
+  // Hydrate anon chat from sessionStorage (auto-cleared when the tab/browser closes)
   useEffect(() => {
+    if (user) return;
+    try {
+      const raw = sessionStorage.getItem(ANON_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Message[];
+        if (Array.isArray(parsed) && parsed.length) {
+          setMessages(parsed);
+          const userTurns = parsed.filter((m) => m.role === "user").length;
+          if (userTurns >= FREE_LIMIT) setLimitReached(true);
+        }
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist anon messages to sessionStorage as they grow
+  useEffect(() => {
+    if (user) return;
+    try {
+      if (messages.length) sessionStorage.setItem(ANON_KEY, JSON.stringify(messages));
+    } catch {}
+  }, [messages, user]);
+
+  // Load messages when active conversation changes (signed-in only)
+  useEffect(() => {
+    if (!user) return;
     if (!activeId) {
       setMessages([]);
       messageCountRef.current = 0;
@@ -171,25 +202,60 @@ const Chat = () => {
       setMessages(m);
       messageCountRef.current = m.length;
     });
-  }, [activeId, history.loadMessages]);
+  }, [activeId, history.loadMessages, user]);
+
+  // Migrate anon chat into a real saved conversation once the user signs in
+  useEffect(() => {
+    if (!user || migrationRef.current) return;
+    let raw: string | null = null;
+    try { raw = sessionStorage.getItem(ANON_KEY); } catch {}
+    if (!raw) return;
+    let anon: Message[] = [];
+    try { anon = JSON.parse(raw) as Message[]; } catch {}
+    if (!Array.isArray(anon) || anon.length === 0) {
+      try { sessionStorage.removeItem(ANON_KEY); } catch {}
+      return;
+    }
+    migrationRef.current = true;
+    (async () => {
+      const firstUser = anon.find((m) => m.role === "user");
+      const title = firstUser
+        ? (firstUser.content.length > 60 ? firstUser.content.slice(0, 57) + "..." : firstUser.content)
+        : "Previous consultation";
+      const created = await history.createConversation(title);
+      if (!created) { migrationRef.current = false; return; }
+      let ordering = 0;
+      for (const m of anon) {
+        await history.saveMessage(created.id, m, ordering++);
+      }
+      try { sessionStorage.removeItem(ANON_KEY); } catch {}
+      setActiveId(created.id);
+      setMessages(anon);
+      messageCountRef.current = anon.length;
+      setLimitReached(false);
+      toast.success("Your earlier chat has been saved to your account.");
+    })();
+  }, [user, history]);
 
   const handleNew = useCallback(() => {
     setActiveId(null);
     setMessages([]);
     messageCountRef.current = 0;
-  }, []);
+    setLimitReached(false);
+    if (!user) {
+      try { sessionStorage.removeItem(ANON_KEY); } catch {}
+    }
+  }, [user]);
 
   const handleSend = useCallback(
     async (text?: string) => {
       const msg = (text || input).trim();
       if (!msg || isLoading) return;
 
-      const FREE_LIMIT = 5;
       const userTurnsSoFar = messages.filter((m) => m.role === "user").length;
 
       if (!user && userTurnsSoFar >= FREE_LIMIT) {
-        toast.error(`You've used your ${FREE_LIMIT} free messages. Create a free account to keep going — your chat history will be saved.`);
-        navigate("/auth");
+        setLimitReached(true);
         return;
       }
 
@@ -500,29 +566,62 @@ const Chat = () => {
             </motion.div>
           )}
 
+          {!user && limitReached && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="px-4 py-3 border-t border-accent/30 bg-accent/10"
+            >
+              <div className="max-w-4xl mx-auto flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-start gap-3">
+                  <Sparkles className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      You've used your {FREE_LIMIT} free messages
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Create a free account to keep chatting — your current conversation will be saved to your account. Close this tab without signing up and it will be cleared.
+                    </p>
+                  </div>
+                </div>
+                <Button variant="gold" onClick={() => navigate("/auth")} className="shrink-0">
+                  Create free account
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
           <div className="border-t border-border bg-card/80 backdrop-blur-sm p-4">
             <div className="flex gap-3 max-w-4xl mx-auto">
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                placeholder={user ? "Tell me about your business idea..." : "Sign in to start a saved consultation..."}
-                className="flex-1 bg-muted rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all"
+                placeholder={
+                  !user && limitReached
+                    ? "Create a free account to keep chatting…"
+                    : "Tell me about your business idea..."
+                }
+                disabled={!user && limitReached}
+                className="flex-1 bg-muted rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <Button
                 variant="gold"
                 size="icon"
                 className="h-12 w-12 rounded-xl shrink-0"
                 onClick={() => handleSend()}
-                disabled={!input.trim() || isLoading}
+                disabled={!input.trim() || isLoading || (!user && limitReached)}
               >
                 <Send className="w-5 h-5" />
               </Button>
             </div>
             <p className="text-xs text-muted-foreground text-center mt-2">
-              Chats auto-saved • Free viability snapshot • Premium PDF report: SGD $20
+              {user
+                ? "Chats auto-saved • Free viability snapshot • Premium PDF report: SGD $20"
+                : `Free preview • ${Math.max(0, FREE_LIMIT - messages.filter((m) => m.role === "user").length)} of ${FREE_LIMIT} free messages left • Sign up to save your chat`}
             </p>
           </div>
+
         </div>
       </div>
     </div>
