@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "npm:@supabase/supabase-js@2.57.2";
+import { anthropicErrorResponse, callAnthropicReportText } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -273,9 +274,6 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
@@ -316,34 +314,18 @@ serve(async (req) => {
       .map((m: { role: string; content: string }) => `${m.role === "user" ? "Client" : "Consultant"}: ${m.content}`)
       .join("\n\n");
 
-    // Generate report via AI
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: REPORT_PROMPT },
-          {
-            role: "user",
-            content: `Here is the consultation conversation with the client:\n\n${conversationSummary}\n\nGenerate the full Premium Business Viability Report based on this consultation.`,
-          },
-        ],
-      }),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      console.error("AI gateway error:", response.status, text);
-      throw new Error("Failed to generate report");
+    let reportContent: string;
+    try {
+      reportContent = await callAnthropicReportText({
+        system: REPORT_PROMPT,
+        userMessage: `Here is the consultation conversation with the client:\n\n${conversationSummary}\n\nGenerate the full Premium Business Viability Report based on this consultation.`,
+        maxTokens: 8192,
+      });
+    } catch (aiErr) {
+      const status = (aiErr as Error & { status?: number }).status;
+      if (status) return anthropicErrorResponse(status, corsHeaders);
+      throw aiErr;
     }
-
-    const aiResult = await response.json();
-    const reportContent = aiResult.choices?.[0]?.message?.content;
-    if (!reportContent) throw new Error("No report content generated");
 
     // Save report
     await supabaseAdmin

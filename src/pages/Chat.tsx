@@ -88,6 +88,7 @@ async function streamChat({
 
   if (!resp.ok) {
     if (resp.status === 429) { onError("Rate limited — please wait a moment and try again."); return; }
+    if (resp.status === 503) { onError("AI service is temporarily overloaded. Please try again shortly."); return; }
     if (resp.status === 402) { onError("AI credits exhausted. Please try again later."); return; }
     if (resp.status === 401) {
       try {

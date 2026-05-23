@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { anthropicErrorResponse, callAnthropicTool } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,13 +10,61 @@ const corsHeaders = {
 
 const CACHE_TTL_HOURS = 6;
 
+const MARKET_NEWS_TOOL = {
+  name: "return_market_news",
+  description: "Return curated news with predicted SG market impact",
+  input_schema: {
+    type: "object",
+    properties: {
+      overview: { type: "string", description: "2-3 sentence summary of the current market climate, personalized to the user's sector if given" },
+      items: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            headline: { type: "string" },
+            category: {
+              type: "string",
+              enum: ["Geopolitics", "Policy", "Technology", "Supply Chain", "Finance", "Energy", "Consumer", "Healthcare", "Real Estate"],
+            },
+            summary: { type: "string", description: "2-3 sentence neutral summary of what happened" },
+            predictedImpact: { type: "string", description: "Predicted impact, personalized to the user's sector when provided" },
+            affectedSectors: { type: "array", items: { type: "string" } },
+            sentiment: { type: "string", enum: ["positive", "negative", "neutral", "mixed"] },
+            severity: { type: "number", description: "1 (minor) to 5 (major)" },
+            actionableAdvice: { type: "string", description: "One concrete sector-specific action the SG SME should consider" },
+            analystQuestions: {
+              type: "array",
+              description: "3 sharp follow-up questions the user could ask the analyst about this story",
+              items: { type: "string" },
+            },
+            sources: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  title: { type: "string" },
+                  url: { type: "string" },
+                },
+                required: ["name", "title", "url"],
+              },
+            },
+            publishedApprox: { type: "string" },
+          },
+          required: ["headline", "category", "summary", "predictedImpact", "affectedSectors", "sentiment", "severity", "actionableAdvice", "analystQuestions", "sources", "publishedApprox"],
+        },
+      },
+      generatedAt: { type: "string" },
+    },
+    required: ["overview", "items", "generatedAt"],
+  },
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
-
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
@@ -52,18 +101,10 @@ serve(async (req) => {
       ? `The user runs a Singapore business in this sector: "${sector}". PERSONALIZE every item's predictedImpact and actionableAdvice for this sector specifically — use sector-relevant numbers, supply chains, customer behavior, regulators, and grants.`
       : `The user has not specified a sector — keep analysis broadly useful for SG SMEs.`;
 
-    const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          {
-            role: "system",
-            content: `You are a senior Singapore market intelligence analyst writing on ${today}. Your job is to surface the genuinely most consequential CURRENT events that are shifting markets right now — wars, geopolitical conflicts, commodity/oil shocks, central bank moves, supply chain disruptions, tech/AI breakthroughs, MAS/MTI/IMDA policy changes, sector-specific shifts.
+    let newsData: Record<string, unknown>;
+    try {
+      newsData = await callAnthropicTool<Record<string, unknown>>({
+        system: `You are a senior Singapore market intelligence analyst writing on ${today}. Your job is to surface the genuinely most consequential CURRENT events that are shifting markets right now — wars, geopolitical conflicts, commodity/oil shocks, central bank moves, supply chain disruptions, tech/AI breakthroughs, MAS/MTI/IMDA policy changes, sector-specific shifts.
 
 CRITICAL RULES:
 - Be CURRENT. If there is an active war, major conflict (e.g. US–Iran, Russia–Ukraine, Middle East escalation), trade war, election shock, oil/shipping disruption, AI policy shift — these MUST appear. Do not return only soft policy news while major disruptors are happening.
@@ -73,92 +114,15 @@ CRITICAL RULES:
 - Predictions must be concrete and quantified where possible (% moves, S$ impact, weeks of lead time).
 
 ${sectorLine}`,
-          },
-          {
-            role: "user",
-            content: `Give me 10-12 of the most consequential news items right now affecting Singapore's business environment. Make sure active conflicts and energy/oil shocks are represented if they exist today. Personalize predicted market shifts ${sector ? `for a Singapore ${sector} business` : "for SG SMEs broadly"}.`,
-          },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "return_market_news",
-              description: "Return curated news with predicted SG market impact",
-              parameters: {
-                type: "object",
-                properties: {
-                  overview: { type: "string", description: "2-3 sentence summary of the current market climate, personalized to the user's sector if given" },
-                  items: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        headline: { type: "string" },
-                        category: {
-                          type: "string",
-                          enum: ["Geopolitics", "Policy", "Technology", "Supply Chain", "Finance", "Energy", "Consumer", "Healthcare", "Real Estate"],
-                        },
-                        summary: { type: "string", description: "2-3 sentence neutral summary of what happened" },
-                        predictedImpact: { type: "string", description: "Predicted impact, personalized to the user's sector when provided" },
-                        affectedSectors: { type: "array", items: { type: "string" } },
-                        sentiment: { type: "string", enum: ["positive", "negative", "neutral", "mixed"] },
-                        severity: { type: "number", description: "1 (minor) to 5 (major)" },
-                        actionableAdvice: { type: "string", description: "One concrete sector-specific action the SG SME should consider" },
-                        analystQuestions: {
-                          type: "array",
-                          description: "3 sharp follow-up questions the user could ask the analyst about this story",
-                          items: { type: "string" },
-                        },
-                        sources: {
-                          type: "array",
-                          items: {
-                            type: "object",
-                            properties: {
-                              name: { type: "string" },
-                              title: { type: "string" },
-                              url: { type: "string" },
-                            },
-                            required: ["name", "title", "url"],
-                          },
-                        },
-                        publishedApprox: { type: "string" },
-                      },
-                      required: ["headline", "category", "summary", "predictedImpact", "affectedSectors", "sentiment", "severity", "actionableAdvice", "analystQuestions", "sources", "publishedApprox"],
-                    },
-                  },
-                  generatedAt: { type: "string" },
-                },
-                required: ["overview", "items", "generatedAt"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "return_market_news" } },
-      }),
-    });
-
-    if (!aiRes.ok) {
-      if (aiRes.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limited. Try again shortly." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (aiRes.status === 402) {
-        return new Response(JSON.stringify({ error: "AI credits exhausted." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const text = await aiRes.text();
-      console.error("AI gateway error", aiRes.status, text);
-      throw new Error("AI gateway error");
+        userMessage: `Give me 10-12 of the most consequential news items right now affecting Singapore's business environment. Make sure active conflicts and energy/oil shocks are represented if they exist today. Personalize predicted market shifts ${sector ? `for a Singapore ${sector} business` : "for SG SMEs broadly"}.`,
+        tool: MARKET_NEWS_TOOL,
+        maxTokens: 4096,
+      });
+    } catch (aiErr) {
+      const status = (aiErr as Error & { status?: number }).status;
+      if (status) return anthropicErrorResponse(status, corsHeaders);
+      throw aiErr;
     }
-
-    const aiJson = await aiRes.json();
-    const toolCall = aiJson.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) throw new Error("No tool call returned");
-    const newsData = JSON.parse(toolCall.function.arguments);
     newsData.sector = sector;
 
     await supabase.from("market_news_cache").insert({ query_key: queryKey, data: newsData });
