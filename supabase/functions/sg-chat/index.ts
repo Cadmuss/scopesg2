@@ -315,25 +315,75 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY not configured");
 
+    // --- Input validation: prevent unbounded LLM payloads ---
+    const MAX_MESSAGES = 100;
+    const MAX_TOTAL_CHARS = 200_000;
+    const MAX_MSG_CHARS = 20_000;
+    const FREE_USER_MSG_LIMIT = 5; // anon users: 5 user-turn messages then must sign up
+
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return new Response(JSON.stringify({ error: "messages must be a non-empty array" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (messages.length > MAX_MESSAGES) {
+      return new Response(JSON.stringify({ error: `Too many messages (max ${MAX_MESSAGES}). Start a new conversation.` }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    let totalChars = 0;
+    for (const m of messages) {
+      if (!m || typeof m !== "object" || typeof m.content !== "string" ||
+          (m.role !== "user" && m.role !== "assistant" && m.role !== "system")) {
+        return new Response(JSON.stringify({ error: "Invalid message shape" }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (m.content.length > MAX_MSG_CHARS) {
+        return new Response(JSON.stringify({ error: `Message exceeds ${MAX_MSG_CHARS} chars` }), {
+          status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      totalChars += m.content.length;
+    }
+    if (totalChars > MAX_TOTAL_CHARS) {
+      return new Response(JSON.stringify({ error: "Conversation too long. Start a new chat." }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const supabaseAdmin = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    // Identify the user from their JWT (optional — anon users still get a response)
+    // Identify the user from their JWT (optional — anon users get a limited free tier)
     let userMemory = "";
+    let isAuthenticated = false;
     try {
       const authHeader = req.headers.get("Authorization") || "";
       const token = authHeader.replace("Bearer ", "");
       if (token) {
         const { data } = await supabaseAdmin.auth.getUser(token);
         if (data?.user?.id) {
+          isAuthenticated = true;
           const lastUserMsg = [...(messages || [])].reverse().find((m: any) => m.role === "user")?.content || "";
           userMemory = await buildUserMemory(supabaseAdmin, data.user.id, lastUserMsg);
         }
       }
     } catch (e) {
       console.error("user memory lookup failed:", e);
+    }
+
+    // Enforce free-tier message cap for unauthenticated users
+    if (!isAuthenticated) {
+      const userTurns = messages.filter((m: any) => m.role === "user").length;
+      if (userTurns > FREE_USER_MSG_LIMIT) {
+        return new Response(JSON.stringify({
+          error: "free_limit_reached",
+          message: `You've used your ${FREE_USER_MSG_LIMIT} free messages. Create a free account to continue — it takes 30 seconds and your chat history will be saved.`,
+        }), { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
     }
 
     // Knowledge base context
