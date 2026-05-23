@@ -134,6 +134,9 @@ async function streamChat({
   onDone();
 }
 
+const ANON_KEY = "sg_anon_chat_messages";
+const FREE_LIMIT = 5;
+
 const Chat = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -146,9 +149,11 @@ const Chat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [limitReached, setLimitReached] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
   const assistantRef = useRef("");
   const messageCountRef = useRef(0);
+  const migrationRef = useRef(false);
 
   const SNAPSHOT_MARKER = "<!-- SNAPSHOT_READY -->";
   const snapshotDelivered = messages.some(
@@ -160,8 +165,34 @@ const Chat = () => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  // Load messages when active conversation changes
+  // Hydrate anon chat from sessionStorage (auto-cleared when the tab/browser closes)
   useEffect(() => {
+    if (user) return;
+    try {
+      const raw = sessionStorage.getItem(ANON_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Message[];
+        if (Array.isArray(parsed) && parsed.length) {
+          setMessages(parsed);
+          const userTurns = parsed.filter((m) => m.role === "user").length;
+          if (userTurns >= FREE_LIMIT) setLimitReached(true);
+        }
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Persist anon messages to sessionStorage as they grow
+  useEffect(() => {
+    if (user) return;
+    try {
+      if (messages.length) sessionStorage.setItem(ANON_KEY, JSON.stringify(messages));
+    } catch {}
+  }, [messages, user]);
+
+  // Load messages when active conversation changes (signed-in only)
+  useEffect(() => {
+    if (!user) return;
     if (!activeId) {
       setMessages([]);
       messageCountRef.current = 0;
@@ -171,25 +202,60 @@ const Chat = () => {
       setMessages(m);
       messageCountRef.current = m.length;
     });
-  }, [activeId, history.loadMessages]);
+  }, [activeId, history.loadMessages, user]);
+
+  // Migrate anon chat into a real saved conversation once the user signs in
+  useEffect(() => {
+    if (!user || migrationRef.current) return;
+    let raw: string | null = null;
+    try { raw = sessionStorage.getItem(ANON_KEY); } catch {}
+    if (!raw) return;
+    let anon: Message[] = [];
+    try { anon = JSON.parse(raw) as Message[]; } catch {}
+    if (!Array.isArray(anon) || anon.length === 0) {
+      try { sessionStorage.removeItem(ANON_KEY); } catch {}
+      return;
+    }
+    migrationRef.current = true;
+    (async () => {
+      const firstUser = anon.find((m) => m.role === "user");
+      const title = firstUser
+        ? (firstUser.content.length > 60 ? firstUser.content.slice(0, 57) + "..." : firstUser.content)
+        : "Previous consultation";
+      const created = await history.createConversation(title);
+      if (!created) { migrationRef.current = false; return; }
+      let ordering = 0;
+      for (const m of anon) {
+        await history.saveMessage(created.id, m, ordering++);
+      }
+      try { sessionStorage.removeItem(ANON_KEY); } catch {}
+      setActiveId(created.id);
+      setMessages(anon);
+      messageCountRef.current = anon.length;
+      setLimitReached(false);
+      toast.success("Your earlier chat has been saved to your account.");
+    })();
+  }, [user, history]);
 
   const handleNew = useCallback(() => {
     setActiveId(null);
     setMessages([]);
     messageCountRef.current = 0;
-  }, []);
+    setLimitReached(false);
+    if (!user) {
+      try { sessionStorage.removeItem(ANON_KEY); } catch {}
+    }
+  }, [user]);
 
   const handleSend = useCallback(
     async (text?: string) => {
       const msg = (text || input).trim();
       if (!msg || isLoading) return;
 
-      const FREE_LIMIT = 5;
       const userTurnsSoFar = messages.filter((m) => m.role === "user").length;
 
       if (!user && userTurnsSoFar >= FREE_LIMIT) {
-        toast.error(`You've used your ${FREE_LIMIT} free messages. Create a free account to keep going — your chat history will be saved.`);
-        navigate("/auth");
+        setLimitReached(true);
         return;
       }
 
