@@ -1,19 +1,19 @@
-## No changes required
+## Smoke test plan for `sg-chat`
 
-`supabase/functions/sg-chat/index.ts` already satisfies every requirement:
+Use `supabase--curl_edge_functions` to POST a minimal payload to the deployed `sg-chat` function and confirm the SSE stream comes back in OpenAI-compatible format.
 
-- Reads the key via `Deno.env.get("ANTHROPIC_API_KEY")` (line 14) and 500s if missing.
-- Calls `https://api.anthropic.com/v1/messages` directly — no Lovable AI gateway involved, so no Lovable AI credits are consumed.
-- Uses model `claude-haiku-4-5-20251001` (line 29).
-- Sends `stream: true` (line 31).
-- Translates Anthropic SSE events into OpenAI-compatible chunks: each `content_block_delta` is re-emitted as `data: {"choices":[{"delta":{"content":"..."}}]}\n\n`, and the stream terminates with `data: [DONE]\n\n` (lines 63–75).
-- Response is returned with `Content-Type: text/event-stream` and CORS headers (lines 80–86).
+### Request
+- Path: `/sg-chat`
+- Method: `POST`
+- Body: `{"messages":[{"role":"user","content":"Say hello in 5 words."}]}`
 
-The `ANTHROPIC_API_KEY` secret is already configured in the project.
+### Pass criteria
+1. HTTP 200 with `Content-Type: text/event-stream`.
+2. Response body contains multiple `data: {"choices":[{"delta":{"content":"..."}}]}` chunks.
+3. Stream terminates with `data: [DONE]`.
+4. Concatenated `delta.content` values form a coherent short reply (proves Anthropic actually streamed tokens, not just an error).
 
-### Verdict
-No-Go on edits. The function is already in the requested state. If you'd like, I can instead:
-1. Add input validation (cap message count / total characters) for hardening, or
-2. Add a quick smoke test against the deployed function to confirm streaming end-to-end.
-
-Let me know if you want either, otherwise nothing to ship here.
+### If it fails
+- Non-200 / JSON error body → check `supabase--edge_function_logs` for `sg-chat` and report the Anthropic error (bad key, model name, rate limit).
+- 200 but no `data:` chunks → SSE translation bug; re-read `index.ts`.
+- Report the outcome back; no code changes unless a failure is found.
