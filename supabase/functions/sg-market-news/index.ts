@@ -73,6 +73,30 @@ serve(async (req) => {
     const url = new URL(req.url);
     const force = url.searchParams.get("refresh") === "1";
 
+    // Force-refresh bypasses cache and triggers an expensive AI call.
+    // Require a valid authenticated user to prevent anonymous credit-burn abuse.
+    if (force) {
+      const authHeader = req.headers.get("Authorization") || "";
+      const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
+      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
+      if (!token || token === anonKey) {
+        return new Response(JSON.stringify({ error: "Authentication required to force-refresh." }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      const authClient = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        anonKey,
+        { global: { headers: { Authorization: `Bearer ${token}` } } },
+      );
+      const { data: userData, error: userErr } = await authClient.auth.getUser(token);
+      if (userErr || !userData?.user) {
+        return new Response(JSON.stringify({ error: "Invalid or expired session." }), {
+          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
     let body: { sector?: string } = {};
     try { body = await req.json(); } catch { /* no body */ }
     const sector = (body.sector || "").trim().slice(0, 80);
