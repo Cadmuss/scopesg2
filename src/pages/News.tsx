@@ -93,11 +93,17 @@ const News = () => {
     const useSector = sectorOverride ?? sector;
     try {
       if (refresh) {
+        const { data: sessionRes } = await supabase.auth.getSession();
+        const token = sessionRes.session?.access_token;
+        if (!token) {
+          throw new Error("Please sign in to force a refresh. Cached news updates automatically every 6 hours.");
+        }
         const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sg-market-news?refresh=1`;
         const r = await fetch(url, {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            Authorization: `Bearer ${token}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
             "Content-Type": "application/json",
           },
           body: JSON.stringify({ sector: useSector }),
