@@ -1,7 +1,7 @@
 const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
-/** Claude 3 Haiku — AI analyst, market news, and market trends only. */
-export const HAIKU_MODEL = "claude-3-haiku-20240307";
+/** Claude Haiku 4.5 — AI analyst, market news, and market trends. */
+export const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
 /** @deprecated Use HAIKU_MODEL */
 export const DEFAULT_ANTHROPIC_MODEL = HAIKU_MODEL;
