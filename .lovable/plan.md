@@ -1,66 +1,19 @@
+## No changes required
 
+`supabase/functions/sg-chat/index.ts` already satisfies every requirement:
 
-## Trend Forecasting Dashboard with Visual Charts
+- Reads the key via `Deno.env.get("ANTHROPIC_API_KEY")` (line 14) and 500s if missing.
+- Calls `https://api.anthropic.com/v1/messages` directly — no Lovable AI gateway involved, so no Lovable AI credits are consumed.
+- Uses model `claude-haiku-4-5-20251001` (line 29).
+- Sends `stream: true` (line 31).
+- Translates Anthropic SSE events into OpenAI-compatible chunks: each `content_block_delta` is re-emitted as `data: {"choices":[{"delta":{"content":"..."}}]}\n\n`, and the stream terminates with `data: [DONE]\n\n` (lines 63–75).
+- Response is returned with `Content-Type: text/event-stream` and CORS headers (lines 80–86).
 
-### What We'll Build
+The `ANTHROPIC_API_KEY` secret is already configured in the project.
 
-A new **Trends** page (`/trends`) with interactive charts visualizing Singapore market data across key sectors. The data will be fetched from an AI model via a backend function, then rendered using the `recharts` library (already installed).
+### Verdict
+No-Go on edits. The function is already in the requested state. If you'd like, I can instead:
+1. Add input validation (cap message count / total characters) for hardening, or
+2. Add a quick smoke test against the deployed function to confirm streaming end-to-end.
 
-### Architecture
-
-```text
-User visits /trends
-       │
-       ▼
-  Trends Page (React)
-       │
-       ▼
-  Edge Function: sg-market-trends
-       │
-       ▼
-  Lovable AI (Gemini 2.5 Flash)
-  → Prompted to return structured JSON
-    with sector data, growth rates, risk
-    scores, saturation levels
-       │
-       ▼
-  Charts render the structured data
-```
-
-### Key Components
-
-1. **Edge Function (`supabase/functions/sg-market-trends/index.ts`)**
-   - Calls Lovable AI (Gemini 2.5 Flash) with a system prompt requesting structured JSON about Singapore market trends
-   - Returns data shaped for charts: sector names, growth rates, saturation %, risk scores, regulation impact scores
-   - Caches responses in a `market_trends_cache` database table to avoid redundant AI calls (cache TTL ~24 hours)
-
-2. **Database: `market_trends_cache` table**
-   - Stores cached AI responses with a timestamp
-   - Simple structure: `id`, `query_key`, `data` (jsonb), `created_at`
-   - RLS: publicly readable (trend data is not sensitive)
-
-3. **Trends Page (`src/pages/Trends.tsx`)**
-   - **Sector Growth Bar Chart** — horizontal bars showing projected growth % by sector (F&B, Fintech, E-commerce, Healthcare, Logistics, etc.)
-   - **Market Saturation Radar Chart** — radar/spider chart showing saturation levels across sectors
-   - **Risk Assessment Heat Chart** — bar chart with color-coded risk scores (regulatory, financial, operational)
-   - **Trend Over Time Line Chart** — line chart showing sector momentum over recent quarters
-   - Filter controls: users can select sectors or time ranges
-   - Loading skeletons while data fetches
-
-4. **Routing** — Add `/trends` route to `App.tsx` and a "Trends" link in the Navbar
-
-5. **Navbar Update** — Add "Trends" navigation item with a chart icon
-
-### Technical Details
-
-- Uses `recharts` (already installed) with the existing `ChartContainer`, `ChartTooltip`, and `ChartLegendContent` components from `src/components/ui/chart.tsx`
-- Styled with the existing navy/gold design system
-- Mobile responsive with stacked chart layout on small screens
-- Free users can view charts; detailed drill-down could be Pro-gated later
-
-### Tasks Summary
-1. Create the `market_trends_cache` table with migration
-2. Build the `sg-market-trends` edge function calling Lovable AI
-3. Create the Trends page with 4 chart types
-4. Update routing and navbar
-
+Let me know if you want either, otherwise nothing to ship here.
