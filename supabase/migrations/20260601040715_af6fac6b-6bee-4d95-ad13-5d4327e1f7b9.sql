@@ -1,0 +1,1 @@
+DELETE FROM public.market_news_cache WHERE NOT (jsonb_typeof(data->'items') = 'array' AND jsonb_array_length(data->'items') > 0) AND query_key LIKE 'sg-market-news%';
