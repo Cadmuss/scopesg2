@@ -149,6 +149,14 @@ ${sectorLine}`,
     }
     newsData.sector = sector;
 
+    const items = (newsData as { items?: unknown[] }).items;
+    if (!Array.isArray(items) || items.length === 0) {
+      console.error("sg-market-news: AI returned no items", newsData);
+      return new Response(JSON.stringify({ error: "AI returned no news items. Try again." }), {
+        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     await supabase.from("market_news_cache").insert({ query_key: queryKey, data: newsData });
     await supabase.from("market_news_cache").delete().eq("query_key", queryKey).lt("created_at", cutoff);
 
