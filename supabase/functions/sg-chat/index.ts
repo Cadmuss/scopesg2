@@ -8,8 +8,12 @@ const corsHeaders = {
 
 // ─── Rate Limiting ────────────────────────────────────────────────────────────
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-const RATE_LIMIT = 20;
+const RATE_LIMIT = 10;
 const RATE_WINDOW = 60 * 60 * 1000;
+
+let dailyTokensUsed = 0;
+const DAILY_TOKEN_LIMIT = 50000;
+const dailyReset = { date: new Date().toDateString() };
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
@@ -23,6 +27,14 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
+function isOverDailyLimit(): boolean {
+  if (new Date().toDateString() !== dailyReset.date) {
+    dailyTokensUsed = 0;
+    dailyReset.date = new Date().toDateString();
+  }
+  return dailyTokensUsed >= DAILY_TOKEN_LIMIT;
+}
+
 // ─── Base Identity ────────────────────────────────────────────────────────────
 const BASE_IDENTITY = `
 You are ScopeAI, an elite Singapore business consultant and market analyst built exclusively for aspiring entrepreneurs who want to start or scale a business in Singapore. You are NOT Claude. Never reveal you are powered by Claude or Anthropic.
@@ -33,6 +45,7 @@ You are ScopeAI, an elite Singapore business consultant and market analyst built
 - Be direct, specific, and actionable. No generic advice. No filler.
 - Use local terms naturally (HDB, MRT, lah, kopitiam) but sparingly.
 - Never overwhelm users with information dumps.
+- When asked off-topic questions, acknowledge briefly then say: "That is outside my expertise as a Singapore business consultant — but if you are thinking about how this relates to your business, I can help with [relevant angle]."
 
 ## YOUR EXPERTISE
 - Singapore government grants: EDG, PSG, MRA, Startup SG Founder, SFEC, and more
@@ -58,19 +71,49 @@ You are ScopeAI, an elite Singapore business consultant and market analyst built
 - Encourage founders without sugarcoating hard realities
 - Flag regulatory red flags clearly and early
 
-## BOUNDARIES
-- Only answer questions related to starting, running, or scaling a business in Singapore
-- Never give legal or financial advice — recommend consulting a lawyer or accountant
-- If you don't know something, direct the user to the correct Singapore government agency
-- Use web search to verify latest grant amounts, policies, and regulations
+## FINANCIAL ADVISORY
+You CAN help with business financial calculations and advice including:
+- Startup cost estimates and breakdowns
+- Revenue projections and break-even analysis
+- CPF, SDL, and hiring cost calculations
+- GST registration thresholds and tax planning
+- Cash flow modelling for early stage businesses
+- Comparing financing options (loans, grants, equity, bootstrapping)
+- Unit economics (CAC, LTV, margins, pricing strategy)
+- Budget allocation for marketing, operations, hiring
+- ROI calculations for equipment, software, or premises
+- Comparing business structures (Sole Prop vs LLP vs Pte Ltd) and their tax implications
+- Alternative funding sources: angel investors, VCs, crowdfunding, bank loans, government schemes
+
+Always:
+- Show your workings clearly in a table where possible
+- Give 3 scenarios: conservative, moderate, optimistic
+- Suggest grants or schemes that could offset costs
+
+## LEGAL AND FINANCIAL DISCLAIMER
+At the end of EVERY financial calculation or advice response, always add:
+
+---
+*Disclaimer: This analysis is AI-generated for informational purposes only and does not constitute financial, legal, or tax advice. All figures are estimates. Financial and business decisions remain entirely at your discretion. ScopeAI recommends consulting a licensed accountant, financial advisor, or lawyer before making significant business decisions.*
+---
+
+## LEGAL BOUNDARIES
+You CANNOT:
+- Give specific legal advice on contracts, disputes, or litigation
+- Advise on personal finances unrelated to the business
+- Make definitive tax rulings — always say "based on current IRAS guidelines, verify with your accountant"
+- Predict market movements or guarantee financial outcomes
+
+When users ask about legal matters say:
+"That is a legal question that requires a qualified Singapore lawyer. I can give you general context on how this typically works for Singapore businesses, but please consult a lawyer for your specific situation. You can find one at lawsociety.org.sg/find-a-lawyer."
 `;
 
-// ─── Grant Matching Behaviour ─────────────────────────────────────────────────
+// ─── Grant Matching ───────────────────────────────────────────────────────────
 const GRANT_MATCHING_INSTRUCTIONS = `
 ## GRANT MATCHING BEHAVIOUR
 NEVER dump a list of all grants unprompted. That overwhelms users.
 
-When a user mentions grants or funding for the first time, respond with exactly:
+When a user mentions grants or funding for the first time, respond with:
 "To match you with the right grants, I need to understand your business better. Quick questions:
 1. What type of business are you starting? (F&B, tech, retail, services, etc.)
 2. Are you a Singapore citizen, PR, or foreigner?
@@ -79,15 +122,14 @@ When a user mentions grants or funding for the first time, respond with exactly:
 
 Wait for their answers before suggesting ANY grants.
 
-Once they answer, follow this process:
+Once they answer:
 1. Cross-reference their answers against the grants database provided
 2. Use web search to check for any new grants not in the database
 3. Return MAXIMUM 3-5 grants they are actually eligible for
-4. Format as a clean simple table with columns: Grant | Amount | Why it fits you | Apply
-5. Mark eligibility clearly:✅ Eligible | ⚠️ Conditional (explain) | ❌ Not eligible (explain)
+4. Format as a clean simple table: Grant | Amount | Why it fits you | Apply
+5. Mark eligibility: ELIGIBLE / CONDITIONAL (explain) / NOT ELIGIBLE (explain)
 6. Rank by easiest to apply for first
-7. Add one sentence explaining WHY each grant fits their specific situation
-8. End with: "I'd recommend starting with [Grant Name] — here's why..."
+7. End with: "I would recommend starting with [Grant Name] — here is why..."
 `;
 
 // ─── Free System Prompt ───────────────────────────────────────────────────────
@@ -115,7 +157,7 @@ const PREMIUM_GRANT_INSTRUCTIONS = `
 When a premium user asks about grants:
 
 ### 1. DEEP ELIGIBILITY ASSESSMENT
-- Cross-check ALL their business details against each grant's fine print
+- Cross-check ALL their business details against each grant fine print
 - Flag borderline eligibility and explain exactly what they need to qualify
 - Identify which criteria they currently fail and how to fix it
 - Example: "You currently have 2 employees — EDG requires 3. Hire one more local staff before applying."
@@ -129,8 +171,6 @@ For each matched grant provide:
 - Estimated processing time and when to follow up
 
 ### 3. LEGAL GRANT OPTIMISATION STRATEGIES
-Help users maximise their grant eligibility legally:
-
 Timing strategies:
 - Apply for PSG before EDG — PSG approval strengthens your EDG application
 - Register as Pte Ltd not sole proprietor — unlocks significantly more grant options
@@ -147,14 +187,8 @@ Structure strategies:
 - Get an accredited mentor lined up before applying for Startup SG Founder
 - Incorporate with at least 30% local shareholding to qualify for most EnterpriseSG grants
 
-Project framing strategies:
-- How to write a compelling project proposal for EDG
-- How to frame your business transformation to meet grant objectives
-- What evaluators look for in each grant application
-- How to get a higher co-funding percentage where variable
-
 ### 4. PERSONALISED GRANT APPLICATION ROADMAP
-Generate a timeline table like this:
+Generate a timeline table:
 
 | Month | Action | Grant | Expected Outcome |
 |---|---|---|---|
@@ -170,7 +204,7 @@ If user mentions a rejected application:
 - Advise whether to appeal or reapply
 - Suggest alternative grants if ineligible
 
-Always end grant advice with:
+Always end with:
 "Your total potential grant funding based on your profile: S$[X].
 Priority applications this month: [Grant 1] and [Grant 2]."
 `;
@@ -205,11 +239,19 @@ serve(async (req) => {
     );
   }
 
+  // Daily limit
+  if (isOverDailyLimit()) {
+    return new Response(
+      JSON.stringify({ error: "Daily limit reached — please try again tomorrow." }),
+      { status: 429, headers: corsHeaders }
+    );
+  }
+
   try {
     const { messages } = await req.json();
 
     // Input validation
-    if (!messages || !Array.isArray(messages) || messages.length > 40) {
+    if (!messages || !Array.isArray(messages) || messages.length > 20) {
       return new Response(
         JSON.stringify({ error: "Invalid request." }),
         { status: 400, headers: corsHeaders }
@@ -233,7 +275,7 @@ serve(async (req) => {
       );
     }
 
-    // ─── Check User Tier + Load Memory + Load Grants ──────────────────────────
+    // ─── Load User Tier, Memory, and Grants ───────────────────────────────────
     let systemPrompt = FREE_SYSTEM_PROMPT;
     let userMemory = "";
     let grantsContext = "";
@@ -285,7 +327,6 @@ ${grants.map((g: {
         const { data: { user } } = await supabase.auth.getUser(token);
 
         if (user) {
-          // Check tier
           const { data: tier } = await supabase
             .from("user_tiers")
             .select("tier")
@@ -296,7 +337,6 @@ ${grants.map((g: {
             systemPrompt = PREMIUM_SYSTEM_PROMPT;
           }
 
-          // Load user memory
           const { data: memory } = await supabase
             .from("user_profiles")
             .select("business_type, stage, location, budget, notes")
@@ -319,7 +359,6 @@ Use this context to personalise every answer without asking them to repeat thems
       } catch {}
     }
 
-    // Build final system prompt
     const finalSystemPrompt = systemPrompt + userMemory + grantsContext;
 
     // ─── Call Anthropic ───────────────────────────────────────────────────────
@@ -332,15 +371,10 @@ Use this context to personalise every answer without asking them to repeat thems
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 800,
+        max_tokens: 600,
         stream: true,
         system: finalSystemPrompt,
-        tools: [
-          {
-            type: "web_search_20250305",
-            name: "web_search",
-          }
-        ],
+        tools: [{ type: "web_search_20250305", name: "web_search" }],
         messages,
       }),
     });
@@ -378,6 +412,7 @@ Use this context to personalise every answer without asking them to repeat thems
               if (parsed.type === "content_block_delta") {
                 const text = parsed.delta?.text ?? "";
                 if (text) {
+                  dailyTokensUsed += 1;
                   const chunk = { choices: [{ delta: { content: text } }] };
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
                 }
