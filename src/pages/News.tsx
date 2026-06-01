@@ -75,9 +75,9 @@ const News = () => {
   useEffect(() => {
     if (!user) return;
     supabase
-      .from("profiles")
-      .select("business_type")
-      .eq("user_id", user.id)
+    .from("user_profiles")
+    .select("business_type")
+    .eq("user_id", user.id)
       .maybeSingle()
       .then(({ data }) => {
         if (data?.business_type) {

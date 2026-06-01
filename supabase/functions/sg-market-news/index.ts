@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { anthropicErrorResponse, callAnthropicTool } from "../_shared/anthropic.ts";
+import { anthropicErrorResponse, callAnthropicWithSearch } from "../_shared/anthropic.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,7 +8,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const CACHE_TTL_HOURS = 6;
+const CACHE_TTL_HOURS = 24; //once a day
 
 const MARKET_NEWS_TOOL = {
   name: "return_market_news",
@@ -127,10 +127,11 @@ serve(async (req) => {
 
     let newsData: Record<string, unknown>;
     try {
-      newsData = await callAnthropicTool<Record<string, unknown>>({
+      newsData = await callAnthropicWithSearch<Record<string, unknown>>({
         system: `You are a senior Singapore market intelligence analyst writing on ${today}. Your job is to surface the genuinely most consequential CURRENT events that are shifting markets right now — wars, geopolitical conflicts, commodity/oil shocks, central bank moves, supply chain disruptions, tech/AI breakthroughs, MAS/MTI/IMDA policy changes, sector-specific shifts.
 
 CRITICAL RULES:
+- Focus and prioritize Singapore-specific news. If a global news item is not specifically relevant to Singapore, it should not be included.
 - Be CURRENT. If there is an active war, major conflict (e.g. US–Iran, Russia–Ukraine, Middle East escalation), trade war, election shock, oil/shipping disruption, AI policy shift — these MUST appear. Do not return only soft policy news while major disruptors are happening.
 - COVERAGE: across the 10-12 items, include BOTH global disruptors AND Singapore-specific items. Cover Energy, Geopolitics, Supply Chain, Finance, Technology, Policy at minimum — do NOT leave Energy empty when oil/gas markets are moving.
 - Only cite reputable sources: Reuters, Bloomberg, Channel News Asia, The Straits Times, Business Times SG, Financial Times, AP, BBC, MAS, MTI, Enterprise Singapore, IMDA, gov.sg.
@@ -138,9 +139,9 @@ CRITICAL RULES:
 - Predictions must be concrete and quantified where possible (% moves, S$ impact, weeks of lead time).
 
 ${sectorLine}`,
-        userMessage: `Give me 10-12 of the most consequential news items right now affecting Singapore's business environment. Make sure active conflicts and energy/oil shocks are represented if they exist today. Personalize predicted market shifts ${sector ? `for a Singapore ${sector} business` : "for SG SMEs broadly"}.`,
+        userMessage: `Give me 6-8 of the most consequential news items right now affecting Singapore's business environment. Make sure active conflicts and energy/oil shocks are represented if they exist today. Personalize predicted market shifts ${sector ? `for a Singapore ${sector} business` : "for SG SMEs broadly"}.`,
         tool: MARKET_NEWS_TOOL,
-        maxTokens: 4096,
+        maxTokens: 2048,
       });
     } catch (aiErr) {
       const status = (aiErr as Error & { status?: number }).status;
