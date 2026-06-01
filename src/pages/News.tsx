@@ -92,33 +92,23 @@ const News = () => {
     setError(null);
     const useSector = sectorOverride ?? sector;
     try {
-      if (refresh) {
-        const { data: sessionRes } = await supabase.auth.getSession();
-        const token = sessionRes.session?.access_token;
-        if (!token) {
-          throw new Error("Please sign in to force a refresh. Cached news updates automatically every 6 hours.");
-        }
-        const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/sg-market-news?refresh=1`;
-        const r = await fetch(url, {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ sector: useSector }),
-        });
-        const j = await r.json();
-        if (!r.ok) throw new Error(j.error || "Failed to load news");
-        setData(j);
-      } else {
-        const { data: res, error: fnErr } = await supabase.functions.invoke("sg-market-news", {
-          body: { sector: useSector },
-        });
-        if (fnErr) throw fnErr;
-        if ((res as { error?: string })?.error) throw new Error((res as { error: string }).error);
-        setData(res as NewsData);
+      const baseUrl = "https://yvjtsimarksygwcizpcy.supabase.co/functions/v1/sg-market-news";
+      const url = refresh ? `${baseUrl}?refresh=1` : baseUrl;
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      const { data: sessionRes } = await supabase.auth.getSession();
+      const token = sessionRes.session?.access_token;
+      if (refresh && !token) {
+        throw new Error("Please sign in to force a refresh. Cached news updates automatically every 6 hours.");
       }
+      if (token) headers.Authorization = `Bearer ${token}`;
+      const r = await fetch(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ sector: useSector }),
+      });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error || "Failed to load news");
+      setData(j);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load news");
     } finally {
