@@ -100,7 +100,7 @@ const News = () => {
       if (refresh && !token) {
         throw new Error("Please sign in to force a refresh. Cached news updates automatically every 6 hours.");
       }
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (refresh && token) headers.Authorization = `Bearer ${token}`;
       const r = await fetch(url, {
         method: "POST",
         headers,
@@ -158,7 +158,13 @@ const News = () => {
                   </p>
                 )}
               </div>
-              <Button variant="gold" onClick={() => load(true)} disabled={loading}>
+              <Button variant="gold" onClick={() => {
+                if (!user) {
+                  setError("Please sign in to force a refresh. Cached news updates automatically every 6 hours.");
+                  return;
+                }
+                load(true);
+              }} disabled={loading}>
                 <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </Button>
