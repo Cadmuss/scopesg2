@@ -100,7 +100,7 @@ const News = () => {
       if (refresh && !token) {
         throw new Error("Please sign in to force a refresh. Cached news updates automatically every 6 hours.");
       }
-      if (token) headers.Authorization = `Bearer ${token}`;
+      if (refresh && token) headers.Authorization = `Bearer ${token}`;
       const r = await fetch(url, {
         method: "POST",
         headers,
