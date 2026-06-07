@@ -157,9 +157,7 @@ const Chat = () => {
   const migrationRef = useRef(false);
 
   const SNAPSHOT_MARKER = "<!-- SNAPSHOT_READY -->";
-  const snapshotDelivered = messages.some(
-    (m) => m.role === "assistant" && m.content.includes(SNAPSHOT_MARKER)
-  );
+  const snapshotDelivered = messages.filter((m) => m.role === "user").length >= 4;
   const stripMarker = (s: string) => s.replace(SNAPSHOT_MARKER, "").trimEnd();
 
   useEffect(() => {
@@ -289,6 +287,7 @@ const Chat = () => {
       }
 
       const upsert = (chunk: string) => {
+        if (chunk.includes("SNAPSHOT")) console.log("MARKER RECEIVED:", chunk);
         assistantRef.current += chunk;
         const content = assistantRef.current;
         setMessages((prev) => {
@@ -310,9 +309,12 @@ const Chat = () => {
               await history.updateLastAssistantMessage(convId, assistantRef.current);
             }
           },
-          onError: (err) => {
+          onError: async (err) => {
             toast.error(err);
             setIsLoading(false);
+            if (convId && assistantRef.current) {
+              await history.updateLastAssistantMessage(convId, assistantRef.current);
+            }
           },
         });
       } catch {
@@ -556,7 +558,7 @@ const Chat = () => {
                     <p className="text-xs text-muted-foreground">Detailed projections, competitor analysis &amp; 90-day launch plan</p>
                   </div>
                 </div>
-                <Button variant="gold" onClick={handlePurchaseReport} disabled={isPurchasing} className="gap-2 shrink-0">
+                <Button variant="gold" onClick={handlePurchaseReport} disabled={isPurchasing || !snapshotDelivered} className="gap-2 shrink-0">
                   {isPurchasing ? (
                     <><Loader2 className="w-4 h-4 animate-spin" /> Processing...</>
                   ) : (
@@ -630,3 +632,8 @@ const Chat = () => {
 };
 
 export default Chat;
+
+
+
+
+
