@@ -28,19 +28,13 @@ serve(async (req) => {
     // Get consultation data from request body
     const { consultationMessages } = await req.json();
 
-    // Gate: require a completed snapshot. The chatbot emits "<!-- SNAPSHOT_READY -->"
-    // only after collecting all 5 intake answers and producing the full snapshot.
-    const hasSnapshot = Array.isArray(consultationMessages) &&
-      consultationMessages.some(
-        (m: { role: string; content: string }) =>
-          m?.role === "assistant" && typeof m.content === "string" && m.content.includes("<!-- SNAPSHOT_READY -->")
-      );
-    if (!hasSnapshot) {
+    // Gate: require at least 4 user messages before allowing purchase
+    const userMessageCount = Array.isArray(consultationMessages)
+      ? consultationMessages.filter((m: { role: string }) => m.role === "user").length
+      : 0;
+    if (userMessageCount < 4) {
       return new Response(
-        JSON.stringify({
-          error:
-            "Please complete the consultation first. The analyst needs your business idea, audience, budget, experience, and timeline before generating a Premium Report.",
-        }),
+        JSON.stringify({ error: "Please send at least 4 messages before purchasing a report." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -104,3 +98,7 @@ serve(async (req) => {
     );
   }
 });
+
+
+
+
