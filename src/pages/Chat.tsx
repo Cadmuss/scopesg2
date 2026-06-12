@@ -1,24 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import {
-  Send,
-  Bot,
-  User,
-  Briefcase,
-  Users,
-  Wallet,
-  Award,
-  FileText,
-  Loader2,
-  Sparkles,
-  Target,
-  ClipboardList,
-  MapPin,
-  Calculator,
-  PanelLeftClose,
-  PanelLeftOpen,
-} from "lucide-react";
+import { Send, Bot, User, Briefcase, Users, Wallet, Award, FileText, Loader as Loader2, Sparkles, Target, ClipboardList, MapPin, Calculator, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import ChatSidebar from "@/components/ChatSidebar";
 import ReactMarkdown from "react-markdown";
@@ -139,7 +122,7 @@ const ANON_KEY = "sg_anon_chat_messages";
 const FREE_LIMIT = 5;
 
 const Chat = () => {
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const history = useChatHistory();
@@ -345,21 +328,18 @@ const Chat = () => {
       navigate("/auth");
       return;
     }
+    if (!session?.access_token) {
+      toast.error("Session expired. Please sign in again.");
+      navigate("/auth");
+      return;
+    }
     setIsPurchasing(true);
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-report-checkout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${accessToken}`,
-          "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: JSON.stringify({ consultationMessages: messages }), 
+      const { data, error } = await supabase.functions.invoke("create-report-checkout", {
+        body: { consultationMessages: messages },
+        headers: { Authorization: `Bearer ${session.access_token}` },
       });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Something went wrong");
+      if (error) throw error;
       if (data?.error) throw new Error(data.error);
       if (data?.url) window.open(data.url, "_blank");
     } catch (e: any) {
@@ -367,7 +347,7 @@ const Chat = () => {
     } finally {
       setIsPurchasing(false);
     }
-  }, [user, messages, navigate]);
+  }, [user, session, messages, navigate]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
