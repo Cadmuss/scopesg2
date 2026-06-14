@@ -4,7 +4,7 @@ const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 export const HAIKU_MODEL = "claude-haiku-4-5-20251001";
 
 /** Claude Sonnet 4 — premium report generation only */
-export const PREMIUM_REPORT_MODEL = "claude-sonnet-4-20250514";
+export const PREMIUM_REPORT_MODEL = "claude-sonnet-4-5-20250929";
 
 /** @deprecated Use HAIKU_MODEL */
 export const DEFAULT_ANTHROPIC_MODEL = HAIKU_MODEL;
