@@ -64,23 +64,25 @@ const ReportSuccess = () => {
     if (!report) return;
     toast.info("Preparing PDF...");
     try {
-      const iframe = iframeRef.current;
-      const doc = iframe?.contentDocument || iframe?.contentWindow?.document;
-      const target = doc?.body;
-      if (!target) {
-        toast.error("Report not ready yet. Try again in a moment.");
-        return;
-      }
-
+      const container = document.createElement("div");
+      container.innerHTML = report;
+      container.style.position = "absolute";
+      container.style.left = "-9999px";
+      container.style.top = "0";
+      container.style.width = "900px";
+      document.body.appendChild(container);
+  
       const opt: any = {
-        margin: [12, 12, 14, 12],
+        margin: [0, 0, 0, 0],
         filename: `ScopeSG-Business-Report-${orderId?.slice(0, 8)}.pdf`,
-        image: { type: "jpeg", quality: 0.96 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff" },
+        image: { type: "jpeg", quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", width: 900 },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy", "avoid-all"] },
+        pagebreak: { mode: ["css", "legacy"] },
       };
-      await html2pdf().set(opt).from(target).save();
+  
+      await html2pdf().set(opt).from(container).save();
+      document.body.removeChild(container);
       toast.success("PDF downloaded!");
     } catch (e) {
       console.error(e);
