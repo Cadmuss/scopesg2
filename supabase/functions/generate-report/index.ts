@@ -273,6 +273,7 @@ serve(async (req) => {
         userMessage: `Here is the full consultation with the client:\n\n${conversationSummary}\n\nAnalyse their business type, stage, and specific needs. Then generate a fully bespoke Premium Business Viability Report in complete HTML. Only include sections that are directly relevant to their situation. Make it feel like it was written specifically for them — not from a template.`,
         maxTokens: 8192,
       });
+      reportContent = reportContent.replace(/^```html\s*/i, "").replace(/```\s*$/, "").trim();
     } catch (aiErr) {
       const status = (aiErr as Error & { status?: number }).status;
       if (status) return anthropicErrorResponse(status, corsHeaders);
