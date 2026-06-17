@@ -64,19 +64,43 @@ const ReportSuccess = () => {
     if (!report) return;
     toast.info("Preparing PDF...");
     try {
+      // Extract just the body content from the full HTML document
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(report, "text/html");
+      
+      // Grab the styles too
+      const styles = doc.querySelectorAll("style");
       const container = document.createElement("div");
-      container.innerHTML = report;
       container.style.position = "absolute";
       container.style.left = "-9999px";
       container.style.top = "0";
       container.style.width = "900px";
+      container.style.background = "#ffffff";
+  
+      // Inject styles into a wrapper so they apply
+      const styleWrapper = document.createElement("div");
+      styles.forEach(s => {
+        const clone = document.createElement("style");
+        clone.textContent = s.textContent;
+        styleWrapper.appendChild(clone);
+      });
+  
+      // Inject body content
+      styleWrapper.innerHTML += doc.body.innerHTML;
+      container.appendChild(styleWrapper);
       document.body.appendChild(container);
   
       const opt: any = {
         margin: [0, 0, 0, 0],
         filename: `ScopeSG-Business-Report-${orderId?.slice(0, 8)}.pdf`,
         image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", width: 900 },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true, 
+          backgroundColor: "#ffffff",
+          width: 900,
+          windowWidth: 900
+        },
         jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
         pagebreak: { mode: ["css", "legacy"] },
       };
