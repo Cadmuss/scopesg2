@@ -9,7 +9,7 @@ import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 // @ts-ignore - no types
-import html2pdf from "html2pdf.js";
+
 
 const ReportSuccess = () => {
   const [searchParams] = useSearchParams();
@@ -64,53 +64,31 @@ const ReportSuccess = () => {
     if (!report) return;
     toast.info("Preparing PDF...");
     try {
-      // Extract just the body content from the full HTML document
       const parser = new DOMParser();
       const doc = parser.parseFromString(report, "text/html");
       
-      // Grab the styles too
-      const styles = doc.querySelectorAll("style");
-      const container = document.createElement("div");
-      container.style.position = "absolute";
-      container.style.left = "-9999px";
-      container.style.top = "0";
-      container.style.width = "900px";
-      container.style.background = "#ffffff";
+      const printWindow = window.open("", "_blank");
+      if (!printWindow) {
+        toast.error("Popup blocked — please allow popups and try again.");
+        return;
+      }
   
-      // Inject styles into a wrapper so they apply
-      const styleWrapper = document.createElement("div");
-      styles.forEach(s => {
-        const clone = document.createElement("style");
-        clone.textContent = s.textContent;
-        styleWrapper.appendChild(clone);
-      });
+      printWindow.document.write(report);
+      printWindow.document.close();
   
-      // Inject body content
-      styleWrapper.innerHTML += doc.body.innerHTML;
-      container.appendChild(styleWrapper);
-      document.body.appendChild(container);
-  
-      const opt: any = {
-        margin: [0, 0, 0, 0],
-        filename: `ScopeSG-Business-Report-${orderId?.slice(0, 8)}.pdf`,
-        image: { type: "jpeg", quality: 0.98 },
-        html2canvas: { 
-          scale: 2, 
-          useCORS: true, 
-          backgroundColor: "#ffffff",
-          width: 900,
-          windowWidth: 900
-        },
-        jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
-        pagebreak: { mode: ["css", "legacy"] },
+      // Wait for content to render then trigger print
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.focus();
+          printWindow.print();
+          printWindow.close();
+        }, 800);
       };
   
-      await html2pdf().set(opt).from(container).save();
-      document.body.removeChild(container);
-      toast.success("PDF downloaded!");
+      toast.success("Print dialog opened — choose 'Save as PDF'");
     } catch (e) {
       console.error(e);
-      toast.error("PDF export failed. Try Print instead.");
+      toast.error("Failed to open print dialog.");
     }
   };
 
