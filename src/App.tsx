@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Chat from "./pages/Chat";
 import Marketplace from "./pages/Marketplace";
 import ReportSuccess from "./pages/ReportSuccess";
+import MyReports from "./pages/MyReports";
 import Trends from "./pages/Trends";
 import News from "./pages/News";
 import Auth from "./pages/Auth";
@@ -31,6 +32,7 @@ const App = () => (
             <Route path="/chat" element={<Chat />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/report-success" element={<ReportSuccess />} />
+            <Route path="/my-reports" element={<MyReports />} />
             <Route path="/trends" element={<Trends />} />
             <Route path="/news" element={<News />} />
             <Route path="/knowledge" element={<KnowledgeBase />} />

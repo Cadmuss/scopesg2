@@ -1,6 +1,12 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, Menu, X, LogOut } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { TrendingUp, Menu, X, LogOut, User, FileText } from "lucide-react";
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -45,14 +51,28 @@ const Navbar = () => {
 
         <div className="hidden md:flex items-center gap-3">
           {user ? (
-            <>
-              <span className="text-primary-foreground/70 text-sm truncate max-w-[150px]">
-                {user.user_metadata?.display_name || user.email}
-              </span>
-              <Button variant="ghost" size="sm" onClick={signOut} className="text-primary-foreground/70 hover:text-primary-foreground">
-                <LogOut className="w-4 h-4" />
-              </Button>
-            </>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex items-center gap-2 rounded-full p-0.5 ring-1 ring-primary-foreground/20 hover:ring-accent/60 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                  <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent">
+                    <User className="w-4 h-4" />
+                  </div>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <div className="px-2 py-1.5 text-xs text-muted-foreground truncate">
+                  {user.user_metadata?.display_name || user.email}
+                </div>
+                <DropdownMenuItem asChild>
+                  <Link to="/my-reports" className="flex items-center gap-2 cursor-pointer">
+                    <FileText className="w-4 h-4" /> My Reports
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={signOut} className="flex items-center gap-2 cursor-pointer text-destructive focus:text-destructive">
+                  <LogOut className="w-4 h-4" /> Sign Out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           ) : (
             <Link to="/auth">
               <Button variant="gold" size="sm">Get Started Free</Button>
@@ -85,9 +105,16 @@ const Navbar = () => {
             </Link>
           ))}
           {user ? (
-            <Button variant="ghost" className="w-full justify-start text-primary-foreground/70" onClick={() => { signOut(); setMobileOpen(false); }}>
-              <LogOut className="w-4 h-4 mr-2" /> Sign Out
-            </Button>
+            <>
+              <Link to="/my-reports" onClick={() => setMobileOpen(false)}>
+                <Button variant="ghost" className="w-full justify-start text-primary-foreground/70 hover:text-primary-foreground">
+                  <FileText className="w-4 h-4 mr-2" /> My Reports
+                </Button>
+              </Link>
+              <Button variant="ghost" className="w-full justify-start text-primary-foreground/70" onClick={() => { signOut(); setMobileOpen(false); }}>
+                <LogOut className="w-4 h-4 mr-2" /> Sign Out
+              </Button>
+            </>
           ) : (
             <Link to="/auth" onClick={() => setMobileOpen(false)}>
               <Button variant="gold" className="w-full mt-2">Get Started Free</Button>
