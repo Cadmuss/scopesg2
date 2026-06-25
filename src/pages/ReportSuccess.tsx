@@ -8,16 +8,19 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-// @ts-ignore - no types
-
+import ReportTopUp from "@/components/ReportTopUp";
 
 const ReportSuccess = () => {
   const [searchParams] = useSearchParams();
   const orderId = searchParams.get("order_id");
   const [report, setReport] = useState<string | null>(null);
+  const [orderData, setOrderData] = useState<{ business_name: string } | null>(null);
+  const [liveReportHtml, setLiveReportHtml] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  const displayHtml = liveReportHtml || report;
 
   useEffect(() => {
     if (!orderId) {
@@ -26,26 +29,68 @@ const ReportSuccess = () => {
       return;
     }
 
-    const generateReport = async () => {
+    const kickOffAndPoll = async () => {
       try {
+        // Trigger generation (returns immediately)
         const { data, error: fnError } = await supabase.functions.invoke("generate-report", {
           body: { orderId },
         });
         if (fnError) throw fnError;
         if (data?.error) throw new Error(data.error);
-        setReport(data.report);
+
+        // Fetch order metadata for top-up component
+        const { data: orderRow } = await supabase
+          .from("report_orders")
+          .select("business_name")
+          .eq("id", orderId)
+          .single();
+        if (orderRow) setOrderData(orderRow);
+
+        // Start polling for report_content
+        pollForReport();
+
       } catch (e: any) {
-        console.error("Report generation error:", e);
-        setError(e.message || "Failed to generate report");
-      } finally {
+        console.error("Error:", e);
+        setError(e.message || "Failed to start report generation");
         setLoading(false);
       }
     };
 
-    generateReport();
+    const pollForReport = async () => {
+      const maxAttempts = 40; // 40 × 3s = 2 minutes max
+      let attempts = 0;
+
+      const interval = setInterval(async () => {
+        attempts++;
+        try {
+          const { data: orderRow } = await supabase
+            .from("report_orders")
+            .select("report_content, status")
+            .eq("id", orderId)
+            .single();
+
+          if (orderRow?.report_content) {
+            clearInterval(interval);
+            setReport(orderRow.report_content);
+            setLoading(false);
+          } else if (orderRow?.status === "failed") {
+            clearInterval(interval);
+            setError("Report generation failed. Please contact support.");
+            setLoading(false);
+          } else if (attempts >= maxAttempts) {
+            clearInterval(interval);
+            setError("Report is taking longer than expected. Please refresh the page.");
+            setLoading(false);
+          }
+        } catch (e) {
+          console.error("Polling error:", e);
+        }
+      }, 3000);
+    };
+
+    kickOffAndPoll();
   }, [orderId]);
 
-  // Auto-resize iframe to fit content
   const handleIframeLoad = () => {
     const iframe = iframeRef.current;
     if (!iframe) return;
@@ -61,22 +106,16 @@ const ReportSuccess = () => {
   };
 
   const handleDownload = async () => {
-    if (!report) return;
+    if (!displayHtml) return;
     toast.info("Preparing PDF...");
     try {
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(report, "text/html");
-      
       const printWindow = window.open("", "_blank");
       if (!printWindow) {
         toast.error("Popup blocked — please allow popups and try again.");
         return;
       }
-  
-      printWindow.document.write(report);
+      printWindow.document.write(displayHtml);
       printWindow.document.close();
-  
-      // Wait for content to render then trigger print
       printWindow.onload = () => {
         setTimeout(() => {
           printWindow.focus();
@@ -84,7 +123,6 @@ const ReportSuccess = () => {
           printWindow.close();
         }, 800);
       };
-  
       toast.success("Print dialog opened — choose 'Save as PDF'");
     } catch (e) {
       console.error(e);
@@ -119,7 +157,7 @@ const ReportSuccess = () => {
                 Generating Your Premium Report
               </h2>
               <p className="text-muted-foreground max-w-md">
-                Our AI is analysing your business details and preparing a comprehensive viability report. This may take up to 30 seconds...
+                Our AI is analysing your business details and preparing a comprehensive viability report. This may take a minute...
               </p>
             </motion.div>
           ) : error ? (
@@ -143,7 +181,6 @@ const ReportSuccess = () => {
             </motion.div>
           ) : (
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-              {/* Success header */}
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center">
                   <CheckCircle className="w-6 h-6 text-green-500" />
@@ -156,8 +193,7 @@ const ReportSuccess = () => {
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex gap-3 mb-6 flex-wrap">
+              <div className="flex gap-3 mb-4 flex-wrap">
                 <Button variant="gold" onClick={handleDownload} className="gap-2">
                   <Download className="w-4 h-4" /> Download PDF
                 </Button>
@@ -171,13 +207,23 @@ const ReportSuccess = () => {
                 </Link>
               </div>
 
-              {/* Report content rendered in iframe (report is a full HTML document) */}
+              {orderId && orderData && (
+                <ReportTopUp
+                  orderId={orderId}
+                  businessName={orderData.business_name}
+                  onReportUpdated={(html) => {
+                    setLiveReportHtml(html);
+                    toast.success("Report enhanced! Scroll down to see the updated version.");
+                  }}
+                />
+              )}
+
               <Card className="border-border/50 overflow-hidden">
                 <CardContent className="p-0">
                   <iframe
                     ref={iframeRef}
                     title="Premium Business Report"
-                    srcDoc={report || ""}
+                    srcDoc={displayHtml || ""}
                     onLoad={handleIframeLoad}
                     sandbox="allow-same-origin"
                     style={{
