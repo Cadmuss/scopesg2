@@ -29,66 +29,72 @@ const ReportSuccess = () => {
       return;
     }
 
-    const kickOffAndPoll = async () => {
+    const loadReport = async () => {
       try {
-        // Trigger generation (returns immediately)
-        const { data, error: fnError } = await supabase.functions.invoke("generate-report", {
-          body: { orderId },
-        });
-        if (fnError) throw fnError;
-        if (data?.error) throw new Error(data.error);
-
-        // Fetch order metadata for top-up component
         const { data: orderRow } = await supabase
           .from("report_orders")
-          .select("business_name")
+          .select("report_content, status, consultation_data")
           .eq("id", orderId)
           .single();
-        if (orderRow) setOrderData(orderRow);
 
-        // Start polling for report_content
-        pollForReport();
+        if (orderRow?.report_content) {
+          setReport(orderRow.report_content);
+          const convo = Array.isArray(orderRow.consultation_data)
+            ? orderRow.consultation_data
+            : JSON.parse(orderRow.consultation_data || "[]");
+          const firstMsg = convo.find((m: any) => m.role === "user");
+          setOrderData({ business_name: firstMsg?.content?.slice(0, 50) || "Your Business" });
+          setLoading(false);
+          return;
+        }
 
+        if (orderRow?.status === "paid" || orderRow?.status === "completed") {
+          const { data, error: fnError } = await supabase.functions.invoke("generate-report", {
+            body: { orderId },
+          });
+          if (fnError) throw fnError;
+          if (data?.error) throw new Error(data.error);
+          if (data?.report) {
+            setReport(data.report);
+            setLoading(false);
+          } else {
+            pollForReport();
+          }
+        } else {
+          setError("Order not found or not paid.");
+          setLoading(false);
+        }
       } catch (e: any) {
         console.error("Error:", e);
-        setError(e.message || "Failed to start report generation");
+        setError(e.message || "Failed to load report");
         setLoading(false);
       }
     };
 
     const pollForReport = async () => {
-      const maxAttempts = 40; // 40 × 3s = 2 minutes max
+      const maxAttempts = 60;
       let attempts = 0;
-
       const interval = setInterval(async () => {
         attempts++;
-        try {
-          const { data: orderRow } = await supabase
-            .from("report_orders")
-            .select("report_content, status")
-            .eq("id", orderId)
-            .single();
+        const { data: orderRow } = await supabase
+          .from("report_orders")
+          .select("report_content, status")
+          .eq("id", orderId)
+          .single();
 
-          if (orderRow?.report_content) {
-            clearInterval(interval);
-            setReport(orderRow.report_content);
-            setLoading(false);
-          } else if (orderRow?.status === "failed") {
-            clearInterval(interval);
-            setError("Report generation failed. Please contact support.");
-            setLoading(false);
-          } else if (attempts >= maxAttempts) {
-            clearInterval(interval);
-            setError("Report is taking longer than expected. Please refresh the page.");
-            setLoading(false);
-          }
-        } catch (e) {
-          console.error("Polling error:", e);
+        if (orderRow?.report_content) {
+          clearInterval(interval);
+          setReport(orderRow.report_content);
+          setLoading(false);
+        } else if (orderRow?.status === "failed" || attempts >= maxAttempts) {
+          clearInterval(interval);
+          setError("Report is taking longer than expected. Please refresh the page.");
+          setLoading(false);
         }
       }, 3000);
     };
 
-    kickOffAndPoll();
+    loadReport();
   }, [orderId]);
 
   const handleIframeLoad = () => {
@@ -157,7 +163,7 @@ const ReportSuccess = () => {
                 Generating Your Premium Report
               </h2>
               <p className="text-muted-foreground max-w-md">
-                Our AI is analysing your business details and preparing a comprehensive viability report. This may take a minute...
+                Our AI is analysing your business details and preparing a comprehensive viability report. This may take 2-3 minutes. Please don't close this tab...
               </p>
             </motion.div>
           ) : error ? (
@@ -225,7 +231,7 @@ const ReportSuccess = () => {
                     title="Premium Business Report"
                     srcDoc={displayHtml || ""}
                     onLoad={handleIframeLoad}
-                    sandbox="allow-same-origin"
+                    sandbox="allow-same-origin allow-scripts"
                     style={{
                       width: "100%",
                       minHeight: "800px",
