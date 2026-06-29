@@ -1,4 +1,4 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -53,7 +53,7 @@ const Navbar = () => {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-full p-0.5 ring-1 ring-primary-foreground/20 hover:ring-accent/60 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
+                <button type="button" className="flex items-center gap-2 rounded-full p-0.5 ring-1 ring-primary-foreground/20 hover:ring-accent/60 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-accent">
                   <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center text-accent">
                     <User className="w-4 h-4" />
                   </div>
