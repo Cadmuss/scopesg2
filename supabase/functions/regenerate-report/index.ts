@@ -24,7 +24,6 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Fetch the existing order
     const { data: order, error: fetchError } = await supabase
       .from("report_orders")
       .select("*")
@@ -37,57 +36,58 @@ serve(async (req) => {
       });
     }
 
-    if (order.status !== "paid") {
+    if (order.status !== "paid" && order.status !== "completed") {
       return new Response(JSON.stringify({ error: "Order not paid" }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Build the regeneration prompt
-    const prompt = `You previously generated a competitive intelligence report for a Singapore business.
+    const conversation = Array.isArray(order.consultation_data)
+      ? order.consultation_data
+      : JSON.parse(order.consultation_data || "[]");
 
-ORIGINAL BUSINESS TYPE: ${order.business_type}
-ORIGINAL BUSINESS DETAILS: ${order.business_name} — ${order.report_prompt || ""}
+    const conversationText = conversation
+      .map((msg: any) => `${msg.role.toUpperCase()}: ${msg.content}`)
+      .join("\n\n");
 
-The customer wants to enhance the report with additional information:
+    const prompt = `You previously generated a competitive intelligence report for a Singapore business based on this consultation:
+
+${conversationText}
+
+The customer wants to enhance the report with this additional information:
 "${supplement}"
 
-IMPORTANT GUARD: First, determine if the additional information is about the SAME business type (${order.business_type}). If the customer is clearly describing a completely different type of business, respond with ONLY this exact JSON on the first line:
-{"error": "business_mismatch", "message": "The additional info appears to describe a different business. This top-up is locked to your original report for ${order.business_name}."}
+Regenerate the FULL competitive intelligence report incorporating both the original consultation details AND the new supplemental information.
 
-If it IS about the same business, regenerate the FULL competitive intelligence report incorporating both the original details AND the new supplemental information. The report should be MORE detailed and comprehensive than the original thanks to the extra context.
+CRITICAL: Return ONLY raw HTML starting with <!DOCTYPE html>. No markdown, no code blocks, no text before or after the HTML.
 
-${getReportTemplate(order.business_name, order.business_type)}`;
+IMPORTANT: Write concisely. Complete every section fully. Do not cut off mid-sentence or mid-section. Prioritise completion over detail. Maximum 3 competitors, maximum 4 SWOT points each.
 
-    const reportText = await callAnthropicReportText(prompt);
+Generate a complete, professional HTML report with:
+- Premium navy (#0a1628) and gold (#c9a84c) styling
+- Executive summary
+- Competitive landscape with real Singapore competitors
+- SWOT analysis
+- Market positioning recommendations
+- Star ratings legend (★ = Weak, ★★★ = Average, ★★★★★ = Market Leader)
+- Verdict strip at the bottom`;
 
-    // Check if Claude flagged a business mismatch
-    const firstLine = reportText.split("\n")[0].trim();
-    try {
-      const parsed = JSON.parse(firstLine);
-      if (parsed.error === "business_mismatch") {
-        return new Response(JSON.stringify({ error: parsed.message }), {
-          status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    } catch {
-      // Not JSON — that's fine, it's the report
-    }
+    const reportText = await callAnthropicReportText({
+      system: "You are an expert business analyst specialising in the Singapore market.",
+      userMessage: prompt,
+      maxTokens: 6000,
+    });
 
-    // Strip markdown fences if present
     const cleanReport = reportText
-      .replace(/^```html\s*/i, "")
-      .replace(/^```\s*/i, "")
+      .replace(/^[\s\S]*?(?=<!DOCTYPE|<html)/i, "")
       .replace(/```\s*$/i, "")
       .trim();
 
-    // Save updated report
     const { error: updateError } = await supabase
       .from("report_orders")
       .update({
         report_content: cleanReport,
         user_supplement: supplement,
-        regenerated_at: new Date().toISOString(),
       })
       .eq("id", orderId);
 
@@ -104,16 +104,3 @@ ${getReportTemplate(order.business_name, order.business_type)}`;
     });
   }
 });
-
-function getReportTemplate(businessName: string, businessType: string): string {
-  return `Generate a complete, professional HTML competitive intelligence report (no markdown, pure HTML) with:
-- Premium navy (#0a1628) and gold (#c9a84c) styling
-- Executive summary
-- Competitive landscape with real Singapore competitors (use web search)
-- SWOT analysis
-- Market positioning recommendations
-- A star ratings legend (★ = Weak, ★★ = Below Average, ★★★ = Average, ★★★★ = Strong, ★★★★★ = Market Leader)
-- Verdict strip at the bottom
-- All data current as of today for Singapore market
-Business: ${businessName} | Type: ${businessType}`;
-}
