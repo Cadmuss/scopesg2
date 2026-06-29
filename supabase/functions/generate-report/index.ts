@@ -37,7 +37,7 @@ serve(async (req) => {
       });
     }
 
-    if (order.status !== "paid") {
+    if (order.status !== "paid" && order.status !== "completed") {
       return new Response(JSON.stringify({ error: `Order not paid (status: ${order.status})` }), {
         status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -50,31 +50,93 @@ serve(async (req) => {
       });
     }
 
-    // Generate and await directly
-    console.log("Starting generation...");
-    const prompt = buildPrompt(order);
-    const reportText = await callAnthropicReportText({
-      system: "You are an expert business analyst specialising in the Singapore market.",
-      userMessage: prompt,
-      maxTokens: 8192,
-    });
-    console.log("Generation complete, length:", reportText.length);
+    // Extract conversation
+    const conversation = Array.isArray(order.consultation_data)
+      ? order.consultation_data
+      : JSON.parse(order.consultation_data || "[]");
 
-    const cleanReport = reportText
+    const conversationText = conversation
+      .map((msg: any) => `${msg.role.toUpperCase()}: ${msg.content}`)
+      .join("\n\n");
+
+    const system = "You are an expert business analyst specialising in the Singapore market. Return ONLY raw HTML. No markdown, no code blocks. First character must be < and last must be >.";
+
+    // --- CALL 1: First half of report ---
+    console.log("Generating part 1...");
+    const part1 = await callAnthropicReportText({
+      system,
+      userMessage: `Based on this business consultation:
+
+${conversationText}
+
+Generate the FIRST HALF of a premium competitive intelligence report as raw HTML (no <!DOCTYPE> or <html> tags yet, just the inner sections). Include:
+
+1. A full HTML <head> with all CSS styles (navy #0a1628 and gold #c9a84c theme)
+2. A header section with business name and report date
+3. Executive Summary section
+4. Competitive Landscape section with 4-5 real Singapore competitors, star ratings table
+5. SWOT Analysis section (4 points each)
+
+End your response with </section> after the SWOT section. Do not close the body or html tags.`,
+      maxTokens: 5000,
+    });
+
+    // --- CALL 2: Second half of report ---
+    console.log("Generating part 2...");
+    const part2 = await callAnthropicReportText({
+      system,
+      userMessage: `Based on this business consultation:
+
+${conversationText}
+
+Generate the SECOND HALF of a premium competitive intelligence report as raw HTML. Include:
+
+1. Market Positioning Recommendations section (5-6 actionable recommendations)
+2. Key Performance Indicators section with a data table
+3. Star Ratings Legend section (★ Weak to ★★★★★ Market Leader)
+4. A verdict strip div at the bottom with overall assessment
+5. Close with </div></body></html>
+
+Important: Start directly with <section> or <div>, no HTML head or opening tags.`,
+      maxTokens: 5000,
+    });
+
+    // Combine both parts into a full HTML document
+    let cleanPart1 = part1
+    .replace(/^```html\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .trim();
+  
+  // Ensure it starts with <!DOCTYPE html>
+  if (!cleanPart1.startsWith("<!DOCTYPE") && !cleanPart1.startsWith("<html")) {
+    cleanPart1 = "<!DOCTYPE html>\n<html lang='en'>\n" + cleanPart1;
+  }
+
+    const cleanPart2 = part2
       .replace(/^```html\s*/i, "")
       .replace(/^```\s*/i, "")
       .replace(/```\s*$/i, "")
       .trim();
 
+    // Add disclaimer
+    const disclaimer = `<div style="background:#fff3cd;border-left:4px solid #ffc107;padding:15px 20px;margin:20px 0;font-size:0.85em;color:#856404;">
+      <strong>⚠️ Disclaimer:</strong> This report is AI-generated for informational purposes only. All regulatory information, competitor data, and market figures should be independently verified. This does not constitute professional legal, financial, or business advice.
+    </div>`;
+
+    const fullReport = cleanPart1 + disclaimer + cleanPart2;
+
     await supabase
       .from("report_orders")
       .update({
-        report_content: cleanReport,
+        report_content: fullReport,
         status: "completed",
       })
       .eq("id", order.id);
 
-    return new Response(JSON.stringify({ report: cleanReport }), {
+    console.log("Report saved successfully");
+
+    return new Response(JSON.stringify({ report: fullReport }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 
@@ -85,32 +147,3 @@ serve(async (req) => {
     });
   }
 });
-
-function buildPrompt(order: any): string {
-  // Extract conversation history from consultation_data
-  const conversation = Array.isArray(order.consultation_data) 
-    ? order.consultation_data 
-    : JSON.parse(order.consultation_data || "[]");
-  
-  const conversationText = conversation
-    .map((msg: any) => `${msg.role.toUpperCase()}: ${msg.content}`)
-    .join("\n\n");
-
-  return `You are an expert business analyst specialising in the Singapore market.
-
-A customer had the following consultation conversation about their business idea:
-
-${conversationText}
-
-Based on this consultation, generate a complete professional HTML competitive intelligence report tailored specifically to this business. The report must reference the actual business details discussed (disinfection service, residential post-illness cleaning, S$1K budget, solo operator etc).
-
-Generate a complete, professional HTML report (no markdown, pure HTML) with:
-- Premium navy (#0a1628) and gold (#c9a84c) styling
-- Executive summary specific to this business
-- Competitive landscape with real Singapore competitors in this exact niche (use web search)
-- SWOT analysis for this specific business
-- Market positioning recommendations tailored to this business
-- Star ratings legend (★ = Weak, ★★★ = Average, ★★★★★ = Market Leader)
-- Verdict strip at the bottom
-- All data current as of today for Singapore market`;
-}
