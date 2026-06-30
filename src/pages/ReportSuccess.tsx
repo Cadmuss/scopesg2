@@ -223,7 +223,7 @@ const ReportSuccess = () => {
                   }}
                 />
               )}
-
+<p style={{fontSize: '10px', color: 'red'}}>DEBUG: displayHtml length = {displayHtml?.length || 0}</p>
               <Card className="border-border/50 overflow-hidden">
                 <CardContent className="p-0">
                   <iframe

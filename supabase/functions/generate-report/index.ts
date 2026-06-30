@@ -59,72 +59,98 @@ serve(async (req) => {
       .map((msg: any) => `${msg.role.toUpperCase()}: ${msg.content}`)
       .join("\n\n");
 
-    const system = "You are an expert business analyst specialising in the Singapore market. Return ONLY raw HTML. No markdown, no code blocks. First character must be < and last must be >.";
+    const system = "You are an expert business analyst specialising in the Singapore market.";
 
-    // --- CALL 1: First half of report ---
-    console.log("Generating part 1...");
-    const part1 = await callAnthropicReportText({
+    const disclaimer = `<div style="background:#fff8e6;border-left:4px solid #c9a84c;padding:15px 20px;margin:20px 0;font-size:0.85em;color:#856404;font-family:sans-serif;">
+      <strong>⚠️ Disclaimer:</strong> This report is AI-generated for informational purposes only. All regulatory information, competitor data, and market figures should be independently verified. This does not constitute professional legal, financial, or business advice.
+    </div>`;
+
+    // --- CALL 1: First half ---
+    const part1Raw = await callAnthropicReportText({
       system,
       userMessage: `Based on this business consultation:
-
-${conversationText}
-
-Generate the FIRST HALF of a premium competitive intelligence report as raw HTML (no <!DOCTYPE> or <html> tags yet, just the inner sections). Include:
-
-1. A full HTML <head> with all CSS styles (navy #0a1628 and gold #c9a84c theme)
-2. A header section with business name and report date
-3. Executive Summary section
-4. Competitive Landscape section with 4-5 real Singapore competitors, star ratings table
-5. SWOT Analysis section (4 points each)
-
-End your response with </section> after the SWOT section. Do not close the body or html tags.`,
-      maxTokens: 5000,
+    
+    ${conversationText}
+    
+    Generate the FIRST HALF of a premium competitive intelligence HTML report. 
+    
+    Return a COMPLETE valid HTML document starting with <!DOCTYPE html> and including all CSS in a <style> tag in the <head>.
+    
+    The document should include these sections only:
+    1. Header with business name, report date, and subtitle
+    2. Executive Summary
+    3. Competitive Landscape (4-5 real Singapore competitors with star ratings table)
+    4. SWOT Analysis (4 points each: Strengths, Weaknesses, Opportunities, Threats)
+    
+    CRITICAL: Keep CSS concise — use fewer custom classes if needed. The <style> tag MUST close properly, followed by </head><body> and all content sections, ending with </body></html>. A complete simple report beats an elaborate but cut-off one. Prioritise finishing the full document over visual complexity.
+    
+    IMPORTANT:
+    - Use navy (#0a1628) and gold (#c9a84c) color theme
+    - End the document with </body></html> 
+    - Do NOT include recommendations, KPIs or verdict yet
+    - Return ONLY raw HTML, no markdown, no code blocks`,
+      maxTokens: 7000,
     });
 
-    // --- CALL 2: Second half of report ---
+    // --- CALL 2: Second half ---
     console.log("Generating part 2...");
-    const part2 = await callAnthropicReportText({
+    const part2Raw = await callAnthropicReportText({
       system,
       userMessage: `Based on this business consultation:
 
 ${conversationText}
 
-Generate the SECOND HALF of a premium competitive intelligence report as raw HTML. Include:
+Generate the SECOND HALF of a premium competitive intelligence HTML report.
 
-1. Market Positioning Recommendations section (5-6 actionable recommendations)
-2. Key Performance Indicators section with a data table
-3. Star Ratings Legend section (★ Weak to ★★★★★ Market Leader)
-4. A verdict strip div at the bottom with overall assessment
-5. Close with </div></body></html>
+Return ONLY the inner HTML sections (no <!DOCTYPE>, no <html>, no <head>, no <style> tags).
 
-Important: Start directly with <section> or <div>, no HTML head or opening tags.`,
-      maxTokens: 5000,
+Include these sections:
+1. Market Positioning Recommendations (6 recommendations, ordered strictly HIGH priority first, then MEDIUM, then LOW — do not mix)
+2. Key Performance Indicators — 90-Day Tracking Framework (table with metrics)
+3. Star Ratings Legend (★ Weak to ★★★★★ Market Leader)
+4. Verdict Strip — overall assessment with strong conclusion
+
+IMPORTANT:
+- Use navy (#0a1628) and gold (#c9a84c) color theme inline styles
+- Start directly with <div> or <section>
+- End with </div> (no </body> or </html>)
+- Return ONLY raw HTML, no markdown, no code blocks
+- Complete ALL sections fully, do not cut off`,
+      maxTokens: 7000,
     });
 
-    // Combine both parts into a full HTML document
-    let cleanPart1 = part1
-    .replace(/^```html\s*/i, "")
-    .replace(/^```\s*/i, "")
-    .replace(/```\s*$/i, "")
-    .trim();
-  
-  // Ensure it starts with <!DOCTYPE html>
-  if (!cleanPart1.startsWith("<!DOCTYPE") && !cleanPart1.startsWith("<html")) {
-    cleanPart1 = "<!DOCTYPE html>\n<html lang='en'>\n" + cleanPart1;
-  }
-
-    const cleanPart2 = part2
+    // Clean part 1 — ensure valid HTML document
+    let cleanPart1 = part1Raw
       .replace(/^```html\s*/i, "")
       .replace(/^```\s*/i, "")
       .replace(/```\s*$/i, "")
       .trim();
 
-    // Add disclaimer
-    const disclaimer = `<div style="background:#fff3cd;border-left:4px solid #ffc107;padding:15px 20px;margin:20px 0;font-size:0.85em;color:#856404;">
-      <strong>⚠️ Disclaimer:</strong> This report is AI-generated for informational purposes only. All regulatory information, competitor data, and market figures should be independently verified. This does not constitute professional legal, financial, or business advice.
-    </div>`;
+    // Remove closing body/html from part1 so we can inject part2
+    cleanPart1 = cleanPart1
+      .replace(/<\/body>\s*<\/html>\s*$/i, "")
+      .trim();
 
-    const fullReport = cleanPart1 + disclaimer + cleanPart2;
+    // Ensure starts with <!DOCTYPE html>
+    if (!cleanPart1.toLowerCase().startsWith("<!doctype")) {
+      cleanPart1 = "<!DOCTYPE html>\n<html lang='en'>\n" + cleanPart1;
+    }
+
+    // Clean part 2
+    const cleanPart2 = part2Raw
+      .replace(/^```html\s*/i, "")
+      .replace(/^```\s*/i, "")
+      .replace(/```\s*$/i, "")
+      .trim();
+
+    // Combine into full document
+    const fullReport = `${cleanPart1}
+    
+    ${disclaimer}
+    
+    ${cleanPart2}
+    
+    </body></html>`;
 
     await supabase
       .from("report_orders")
