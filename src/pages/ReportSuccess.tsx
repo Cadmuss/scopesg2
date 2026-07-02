@@ -49,9 +49,26 @@ const ReportSuccess = () => {
         }
 
         if (orderRow?.status === "paid" || orderRow?.status === "completed") {
-          const { data, error: fnError } = await supabase.functions.invoke("generate-report", {
-            body: { orderId },
-          });
+       // Step 1: Get web search results
+const firstUserMsg = orderRow.consultation_data
+? (Array.isArray(orderRow.consultation_data) 
+    ? orderRow.consultation_data 
+    : JSON.parse(orderRow.consultation_data)
+  ).find((m: any) => m.role === "user")
+: null;
+
+const businessContext = firstUserMsg?.content?.slice(0, 200) || "Singapore business";
+
+const { data: searchData } = await supabase.functions.invoke("web-search", {
+body: { businessContext },
+});
+
+const searchResults = searchData?.searchResults || "";
+
+// Step 2: Generate report with search results
+const { data, error: fnError } = await supabase.functions.invoke("generate-report", {
+body: { orderId, searchResults },
+});
           if (fnError) throw fnError;
           if (data?.error) throw new Error(data.error);
           if (data?.report) {
@@ -223,7 +240,7 @@ const ReportSuccess = () => {
                   }}
                 />
               )}
-<p style={{fontSize: '10px', color: 'red'}}>DEBUG: displayHtml length = {displayHtml?.length || 0}</p>
+
               <Card className="border-border/50 overflow-hidden">
                 <CardContent className="p-0">
                   <iframe
