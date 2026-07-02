@@ -74,7 +74,7 @@ const Trends = () => {
   })) ?? [];
 
   // Momentum: pivot to {quarter, sector1, sector2, ...}
-  const quarters = data?.sectors[0]?.quarterlyMomentum.map((q) => q.quarter) ?? [];
+  const quarters = data?.sectors?.[0]?.quarterlyMomentum?.map((q) => q.quarter) ?? [];
   const momentumData = quarters.map((q) => {
     const row: Record<string, any> = { quarter: q };
     data?.sectors.forEach((s) => {
