@@ -19,7 +19,7 @@ async function webSearchResearch(apiKey: string, query: string): Promise<string>
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 3000,
+      max_tokens: 1500,
       messages: [{
         role: "user",
         content: query,
@@ -183,7 +183,7 @@ IMPORTANT:
 - Return ONLY raw HTML, no markdown, no code blocks
 - Complete ALL sections fully, do not cut off
 - Reference specific data points from the market research`,
-      maxTokens: 5000,
+      maxTokens: 3500,
     });
 
     // Clean and combine
