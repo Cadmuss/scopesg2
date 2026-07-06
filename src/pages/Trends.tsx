@@ -245,7 +245,7 @@ const Trends = () => {
 
                 {/* Trends Grid */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {data.items.map((item, index) => (
+                {(data.items ?? []).map((item, index) => (
                     <motion.div
                       key={index}
                       initial={{ opacity: 0, y: 20 }}
