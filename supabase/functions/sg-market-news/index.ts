@@ -109,19 +109,17 @@ IMPORTANT: Your response must be ONLY the JSON object. Start your response with 
     console.log("Response length:", text.length);
 
     let newsData;
-    try {
-      // Strip any markdown, leading/trailing text
-      let clean = text.trim();
-      // Find first { and last }
-      const start = clean.indexOf('{');
-      const end = clean.lastIndexOf('}');
-      if (start === -1 || end === -1) throw new Error("No JSON object found");
-      clean = clean.slice(start, end + 1);
-      newsData = JSON.parse(clean);
-    } catch (e) {
-      console.error("JSON parse error:", e, "Raw:", text.slice(0, 300));
-      throw new Error("Failed to parse AI response as JSON");
-    }
+try {
+  let clean = text.trim();
+  const start = clean.indexOf('{');
+  const end = clean.lastIndexOf('}');
+  if (start === -1 || end === -1) throw new Error("No JSON object found");
+  clean = clean.slice(start, end + 1);
+  newsData = JSON.parse(clean);
+} catch (e) {
+  console.error("JSON parse error:", e, "Raw:", text.slice(0, 300));
+  throw new Error("Failed to parse AI response as JSON");
+}
 
     newsData.sector = sector;
 
