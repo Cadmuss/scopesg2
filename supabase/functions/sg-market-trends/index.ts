@@ -8,7 +8,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const CACHE_TTL_HOURS = 24; //once a day
+const CACHE_TTL_HOURS = 24;
 
 const MARKET_TRENDS_TOOL = {
   name: "return_market_trends",
@@ -18,18 +18,18 @@ const MARKET_TRENDS_TOOL = {
     properties: {
       overview: {
         type: "string",
-        description: "2-3 sentence summary of the current Singapore market landscape for entrepreneurs",
+        description: "2-3 sentence summary of the current Singapore market landscape",
       },
       items: {
         type: "array",
         items: {
           type: "object",
           properties: {
-            trend: { type: "string", description: "Short trend title" },
-            description: { type: "string", description: "2-3 sentence description of the trend" },
-            sector: { type: "string", description: "Primary sector affected" },
-            opportunity: { type: "string", description: "Specific business opportunity this creates for SG entrepreneurs" },
-            threat: { type: "string", description: "Specific threat or risk this poses" },
+            trend: { type: "string" },
+            description: { type: "string" },
+            sector: { type: "string" },
+            opportunity: { type: "string" },
+            threat: { type: "string" },
             timeframe: {
               type: "string",
               enum: ["immediate", "3-6 months", "6-12 months", "1-2 years"],
@@ -37,12 +37,8 @@ const MARKET_TRENDS_TOOL = {
             relevantGrants: {
               type: "array",
               items: { type: "string" },
-              description: "Singapore grants relevant to this trend",
             },
-            actionableAdvice: {
-              type: "string",
-              description: "One concrete action a Singapore entrepreneur should take now",
-            },
+            actionableAdvice: { type: "string" },
             sources: {
               type: "array",
               items: {
@@ -77,29 +73,6 @@ serve(async (req) => {
     const url = new URL(req.url);
     const force = url.searchParams.get("refresh") === "1";
 
-    // Require auth for force refresh to prevent credit abuse
-    if (force) {
-      const authHeader = req.headers.get("Authorization") || "";
-      const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
-      if (!token || token === anonKey) {
-        return new Response(JSON.stringify({ error: "Authentication required to force-refresh." }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const authClient = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        anonKey,
-        { global: { headers: { Authorization: `Bearer ${token}` } } },
-      );
-      const { data: userData, error: userErr } = await authClient.auth.getUser(token);
-      if (userErr || !userData?.user) {
-        return new Response(JSON.stringify({ error: "Invalid or expired session." }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
     let body: { sector?: string } = {};
     try { body = await req.json(); } catch { /* no body */ }
     const sector = (body.sector || "").trim().slice(0, 80);
@@ -117,7 +90,7 @@ serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (cached) {
+      if (cached && cached.data?.items) {
         return new Response(JSON.stringify({ ...cached.data, cachedAt: cached.created_at, sector }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -126,25 +99,16 @@ serve(async (req) => {
 
     const today = new Date().toISOString().split("T")[0];
     const sectorLine = sector
-      ? `The user runs a Singapore business in: "${sector}". Personalize every trend's opportunity, threat, and actionableAdvice specifically for this sector.`
-      : `Keep analysis broadly useful for Singapore entrepreneurs across all sectors.`;
+      ? `Focus on how these trends affect a ${sector} business in Singapore.`
+      : `Cover a broad range of sectors relevant to Singapore entrepreneurs.`;
 
     let trendsData: Record<string, unknown>;
     try {
       trendsData = await callAnthropicTool<Record<string, unknown>>({
-        system: `You are a senior Singapore market strategist writing on ${today}. Identify the most impactful emerging trends for Singapore entrepreneurs right now — covering technology adoption, consumer behavior shifts, regulatory changes, funding environment, talent market, and sector-specific disruptions.
-
-RULES:
-- Be specific to Singapore's context — reference MAS, MTI, EnterpriseSG, IMDA, URA policies where relevant
-- Include relevant Singapore government grants for each trend
-- Cite only reputable sources: CNA, Straits Times, Business Times, EnterpriseSG, MAS, MTI, Reuters, Bloomberg
-- Never fabricate URLs
-- Opportunities and threats must be concrete and actionable, not generic
-
-${sectorLine}`,
-        userMessage: `Give me 6-8 of the most important market trends Singapore entrepreneurs should know about right now. ${sector ? `Focus on how these affect a ${sector} business in Singapore.` : "Cover a broad range of sectors."}`,
+        system: `You are a Singapore market strategist writing on ${today}. Be specific to Singapore — reference MAS, EnterpriseSG, IMDA policies. Include relevant Singapore grants. Keep responses concise.`,
+        userMessage: `Give me exactly 4 important market trends Singapore entrepreneurs should know about right now. ${sectorLine}`,
         tool: MARKET_TRENDS_TOOL,
-        maxTokens: 2048,
+        maxTokens: 1500,
       });
     } catch (aiErr) {
       const status = (aiErr as Error & { status?: number }).status;
