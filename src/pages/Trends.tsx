@@ -1,9 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { TrendingUp, RefreshCw, CircleAlert as AlertCircle, ExternalLink, Lightbulb, TriangleAlert as AlertTriangle, Target, Clock, Building2, Sparkles } from "lucide-react";
+import { TrendingUp, CircleAlert as AlertCircle, ExternalLink, Lightbulb, TriangleAlert as AlertTriangle, Target, Clock, Building2, Sparkles } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
@@ -58,14 +57,11 @@ const Trends = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchTrends = async (force = false) => {
+  const fetchTrends = async () => {
     setLoading(true);
     setError(null);
     try {
-      const url = force ? "?refresh=1" : "";
-      const { data: fnData, error: fnError } = await supabase.functions.invoke(
-        `sg-market-trends${url}`
-      );
+      const { data: fnData, error: fnError } = await supabase.functions.invoke("sg-market-trends");
       if (fnError) throw fnError;
       if (fnData?.error) throw new Error(fnData.error);
       setData(fnData);
@@ -103,29 +99,18 @@ const Trends = () => {
             animate={{ opacity: 1, y: 0 }}
             className="mb-8"
           >
-            <div className="flex items-center justify-between flex-wrap gap-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 rounded-xl bg-gradient-to-br from-navy to-navy-light shadow-lg">
-                  <TrendingUp className="w-8 h-8 text-gold" />
-                </div>
-                <div>
-                  <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">
-                    Singapore Market Trends
-                  </h1>
-                  <p className="text-muted-foreground mt-1">
-                    AI-powered insights for Singapore entrepreneurs
-                  </p>
-                </div>
+            <div className="flex items-center gap-4">
+              <div className="p-3 rounded-xl bg-gradient-to-br from-navy to-navy-light shadow-lg">
+                <TrendingUp className="w-8 h-8 text-gold" />
               </div>
-              <Button
-                variant="outline"
-                onClick={() => fetchTrends(true)}
-                disabled={loading}
-                className="gap-2 border-gold/30 hover:border-gold hover:bg-gold/10"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                Refresh
-              </Button>
+              <div>
+                <h1 className="text-3xl md:text-4xl font-display font-bold text-foreground">
+                  Singapore Market Trends
+                </h1>
+                <p className="text-muted-foreground mt-1">
+                  AI-powered insights for Singapore entrepreneurs
+                </p>
+              </div>
             </div>
           </motion.div>
 
@@ -396,23 +381,6 @@ const Trends = () => {
             )}
           </AnimatePresence>
 
-          {/* Loading overlay when refreshing */}
-          {loading && data && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center"
-            >
-              <Card className="border-gold/30">
-                <CardContent className="p-6 flex items-center gap-4">
-                  <RefreshCw className="w-6 h-6 text-gold animate-spin" />
-                  <p className="text-foreground font-medium">
-                    Refreshing market trends...
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
         </div>
       </main>
       <Footer />
