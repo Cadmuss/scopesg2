@@ -87,10 +87,12 @@ serve(async (req) => {
 Category must be one of: Geopolitics, Policy, Technology, Supply Chain, Finance, Energy, Consumer, Healthcare, Real Estate.
 Sentiment must be one of: positive, negative, neutral, mixed.
 Severity must be a number from 1 to 5.`,
-        messages: [{
-          role: "user",
-          content: `Give me 5 important news items affecting Singapore's business environment right now. ${sectorLine} Return only the JSON, no other text.`,
-        }],
+messages: [{
+  role: "user",
+  content: `Give me 5 important news items affecting Singapore's business environment right now. ${sectorLine} 
+
+IMPORTANT: Your response must be ONLY the JSON object. Start your response with { and end with }. No text before or after. No markdown. No explanation.`,
+}],
       }),
     });
 
@@ -108,10 +110,16 @@ Severity must be a number from 1 to 5.`,
 
     let newsData;
     try {
-      const clean = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
+      // Strip any markdown, leading/trailing text
+      let clean = text.trim();
+      // Find first { and last }
+      const start = clean.indexOf('{');
+      const end = clean.lastIndexOf('}');
+      if (start === -1 || end === -1) throw new Error("No JSON object found");
+      clean = clean.slice(start, end + 1);
       newsData = JSON.parse(clean);
     } catch (e) {
-      console.error("JSON parse error:", e, "Raw:", text.slice(0, 200));
+      console.error("JSON parse error:", e, "Raw:", text.slice(0, 300));
       throw new Error("Failed to parse AI response as JSON");
     }
 
