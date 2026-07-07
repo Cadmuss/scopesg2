@@ -85,7 +85,7 @@ serve(async (req) => {
 }`,
         messages: [{
           role: "user",
-          content: `Give me 4 important Singapore market trends for entrepreneurs right now. ${sectorLine} Return only the JSON, no other text.`,
+          content: `Give me 6 important Singapore market trends for entrepreneurs right now. ${sectorLine} Return only the JSON, no other text.`,
         }],
       }),
     });
