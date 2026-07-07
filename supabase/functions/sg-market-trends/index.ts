@@ -110,6 +110,8 @@ serve(async (req) => {
         tool: MARKET_TRENDS_TOOL,
         maxTokens: 1500,
       });
+      console.log("trendsData keys:", Object.keys(trendsData));
+      console.log("items count:", Array.isArray(trendsData.items) ? trendsData.items.length : "not array");
     } catch (aiErr) {
       const status = (aiErr as Error & { status?: number }).status;
       if (status) return anthropicErrorResponse(status, corsHeaders);
