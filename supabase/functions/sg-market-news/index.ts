@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { anthropicErrorResponse, callAnthropicWithSearch } from "../_shared/anthropic.ts";
+
+const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,58 +9,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const CACHE_TTL_HOURS = 24; //once a day
-
-const MARKET_NEWS_TOOL = {
-  name: "return_market_news",
-  description: "Return curated news with predicted SG market impact",
-  input_schema: {
-    type: "object",
-    properties: {
-      overview: { type: "string", description: "2-3 sentence summary of the current market climate, personalized to the user's sector if given" },
-      items: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            headline: { type: "string" },
-            category: {
-              type: "string",
-              enum: ["Geopolitics", "Policy", "Technology", "Supply Chain", "Finance", "Energy", "Consumer", "Healthcare", "Real Estate"],
-            },
-            summary: { type: "string", description: "2-3 sentence neutral summary of what happened" },
-            predictedImpact: { type: "string", description: "Predicted impact, personalized to the user's sector when provided" },
-            affectedSectors: { type: "array", items: { type: "string" } },
-            sentiment: { type: "string", enum: ["positive", "negative", "neutral", "mixed"] },
-            severity: { type: "number", description: "1 (minor) to 5 (major)" },
-            actionableAdvice: { type: "string", description: "One concrete sector-specific action the SG SME should consider" },
-            analystQuestions: {
-              type: "array",
-              description: "3 sharp follow-up questions the user could ask the analyst about this story",
-              items: { type: "string" },
-            },
-            sources: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  title: { type: "string" },
-                  url: { type: "string" },
-                },
-                required: ["name", "title", "url"],
-              },
-            },
-            publishedApprox: { type: "string" },
-          },
-          required: ["headline", "category", "summary", "predictedImpact", "affectedSectors", "sentiment", "severity", "actionableAdvice", "analystQuestions", "sources", "publishedApprox"],
-        },
-      },
-      generatedAt: { type: "string" },
-    },
-    required: ["overview", "items", "generatedAt"],
-  },
-};
+const CACHE_TTL_HOURS = 24;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -72,30 +22,6 @@ serve(async (req) => {
 
     const url = new URL(req.url);
     const force = url.searchParams.get("refresh") === "1";
-
-    // Force-refresh bypasses cache and triggers an expensive AI call.
-    // Require a valid authenticated user to prevent anonymous credit-burn abuse.
-    if (force) {
-      const authHeader = req.headers.get("Authorization") || "";
-      const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : "";
-      const anonKey = Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_PUBLISHABLE_KEY") || "";
-      if (!token || token === anonKey) {
-        return new Response(JSON.stringify({ error: "Authentication required to force-refresh." }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const authClient = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        anonKey,
-        { global: { headers: { Authorization: `Bearer ${token}` } } },
-      );
-      const { data: userData, error: userErr } = await authClient.auth.getUser(token);
-      if (userErr || !userData?.user) {
-        return new Response(JSON.stringify({ error: "Invalid or expired session." }), {
-          status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
 
     let body: { sector?: string } = {};
     try { body = await req.json(); } catch { /* no body */ }
@@ -113,57 +39,93 @@ serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (cached) {
+      if (cached?.data?.items) {
         return new Response(JSON.stringify({ ...cached.data, cachedAt: cached.created_at, sector }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
     }
 
+    const apiKey = Deno.env.get("ANTHROPIC_API_KEY")!;
     const today = new Date().toISOString().split("T")[0];
     const sectorLine = sector
-      ? `The user runs a Singapore business in this sector: "${sector}". PERSONALIZE every item's predictedImpact and actionableAdvice for this sector specifically — use sector-relevant numbers, supply chains, customer behavior, regulators, and grants.`
-      : `The user has not specified a sector — keep analysis broadly useful for SG SMEs.`;
+      ? `Focus on how these news items affect a ${sector} business in Singapore.`
+      : `Keep analysis broadly useful for Singapore SMEs.`;
 
-    let newsData: Record<string, unknown>;
+    console.log("Calling Anthropic for news...");
+
+    const response = await fetch(ANTHROPIC_API_URL, {
+      method: "POST",
+      headers: {
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 2000,
+        system: `You are a Singapore market intelligence analyst. Today is ${today}. Return ONLY valid JSON, no markdown, no explanation. The JSON must match this exact structure:
+{
+  "overview": "2-3 sentence market summary",
+  "generatedAt": "${today}",
+  "items": [
+    {
+      "headline": "news headline",
+      "category": "Technology",
+      "summary": "2 sentence summary",
+      "predictedImpact": "specific impact on Singapore businesses",
+      "affectedSectors": ["sector1", "sector2"],
+      "sentiment": "positive",
+      "severity": 3,
+      "actionableAdvice": "one concrete action",
+      "analystQuestions": ["question1", "question2", "question3"],
+      "sources": [{"name": "CNA", "title": "article title", "url": "https://www.channelnewsasia.com"}],
+      "publishedApprox": "${today}"
+    }
+  ]
+}
+Category must be one of: Geopolitics, Policy, Technology, Supply Chain, Finance, Energy, Consumer, Healthcare, Real Estate.
+Sentiment must be one of: positive, negative, neutral, mixed.
+Severity must be a number from 1 to 5.`,
+        messages: [{
+          role: "user",
+          content: `Give me 5 important news items affecting Singapore's business environment right now. ${sectorLine} Return only the JSON, no other text.`,
+        }],
+      }),
+    });
+
+    console.log("Anthropic response status:", response.status);
+
+    if (!response.ok) {
+      const text = await response.text();
+      console.error("Anthropic error:", text);
+      throw new Error(`Anthropic API error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const text = result.content?.[0]?.text || "";
+    console.log("Response length:", text.length);
+
+    let newsData;
     try {
-      newsData = await callAnthropicWithSearch<Record<string, unknown>>({
-        system: `You are a senior Singapore market intelligence analyst writing on ${today}. Your job is to surface the genuinely most consequential CURRENT events that are shifting markets right now — wars, geopolitical conflicts, commodity/oil shocks, central bank moves, supply chain disruptions, tech/AI breakthroughs, MAS/MTI/IMDA policy changes, sector-specific shifts.
-
-CRITICAL RULES:
-- Focus and prioritize Singapore-specific news. If a global news item is not specifically relevant to Singapore, it should not be included.
-- Be CURRENT. If there is an active war, major conflict (e.g. US–Iran, Russia–Ukraine, Middle East escalation), trade war, election shock, oil/shipping disruption, AI policy shift — these MUST appear. Do not return only soft policy news while major disruptors are happening.
-- COVERAGE: across the 10-12 items, include BOTH global disruptors AND Singapore-specific items. Cover Energy, Geopolitics, Supply Chain, Finance, Technology, Policy at minimum — do NOT leave Energy empty when oil/gas markets are moving.
-- Only cite reputable sources: Reuters, Bloomberg, Channel News Asia, The Straits Times, Business Times SG, Financial Times, AP, BBC, MAS, MTI, Enterprise Singapore, IMDA, gov.sg.
-- Never fabricate URLs. If unsure, use the publisher's section URL (e.g. https://www.reuters.com/world/) with a realistic article title.
-- Predictions must be concrete and quantified where possible (% moves, S$ impact, weeks of lead time).
-
-${sectorLine}`,
-        userMessage: `Give me 6-8 of the most consequential news items right now affecting Singapore's business environment. Make sure active conflicts and energy/oil shocks are represented if they exist today. Personalize predicted market shifts ${sector ? `for a Singapore ${sector} business` : "for SG SMEs broadly"}.`,
-        tool: MARKET_NEWS_TOOL,
-        maxTokens: 2048,
-      });
-    } catch (aiErr) {
-      const status = (aiErr as Error & { status?: number }).status;
-      if (status) return anthropicErrorResponse(status, corsHeaders);
-      throw aiErr;
+      const clean = text.replace(/^```json\s*/i, "").replace(/```\s*$/i, "").trim();
+      newsData = JSON.parse(clean);
+    } catch (e) {
+      console.error("JSON parse error:", e, "Raw:", text.slice(0, 200));
+      throw new Error("Failed to parse AI response as JSON");
     }
+
     newsData.sector = sector;
-
-    const items = (newsData as { items?: unknown[] }).items;
-    if (!Array.isArray(items) || items.length === 0) {
-      console.error("sg-market-news: AI returned no items", newsData);
-      return new Response(JSON.stringify({ error: "AI returned no news items. Try again." }), {
-        status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     await supabase.from("market_news_cache").insert({ query_key: queryKey, data: newsData });
     await supabase.from("market_news_cache").delete().eq("query_key", queryKey).lt("created_at", cutoff);
 
+    console.log("News saved to cache successfully");
+
     return new Response(JSON.stringify(newsData), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (e) {
     console.error("sg-market-news error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Unknown error" }), {
