@@ -27,7 +27,7 @@ const Footer = () => (
           <ul className="space-y-2 text-sm">
             <li><a href="#" className="hover:text-accent transition-colors">Documentation</a></li>
             <li><a href="#" className="hover:text-accent transition-colors">Blog</a></li>
-            <li><a href="#" className="hover:text-accent transition-colors">Support</a></li>
+            <li><a href="mailto:itscadmus@gmail.com" className="hover:text-accent transition-colors">Support</a></li>
           </ul>
         </div>
         <div>
