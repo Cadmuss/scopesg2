@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Newspaper, AlertCircle, ExternalLink, TrendingUp, TrendingDown, Minus, Filter, MessageSquare } from "lucide-react";
+import { Newspaper, CircleAlert as AlertCircle, ExternalLink, TrendingUp, TrendingDown, Minus, MessageSquare } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,8 +30,6 @@ interface NewsData {
   cachedAt?: string;
   sector?: string;
 }
-
-const CATEGORIES = ["All", "Geopolitics", "Policy", "Technology", "Supply Chain", "Finance", "Energy", "Consumer", "Healthcare", "Real Estate"];
 
 const sentimentIcon = (s: NewsItem["sentiment"]) => {
   if (s === "positive") return <TrendingUp className="w-4 h-4" />;
@@ -63,7 +61,6 @@ const News = () => {
   const [data, setData] = useState<NewsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState("All");
 
   const load = async () => {
     setLoading(true);
@@ -91,7 +88,7 @@ const News = () => {
     navigate("/chat", { state: { initialPrompt: q } });
   };
 
-  const items = (data?.items || []).filter(i => filter === "All" || i.category === filter);
+  const items = data?.items || [];
   const updatedAt = data?.cachedAt || data?.generatedAt;
 
   return (
@@ -126,24 +123,6 @@ const News = () => {
               </CardContent>
             </Card>
           )}
-
-          {/* Filter chips */}
-          <div className="flex items-center gap-2 mb-6 flex-wrap">
-            <Filter className="w-4 h-4 text-primary-foreground/60" />
-            {CATEGORIES.map(c => (
-              <button
-                key={c}
-                onClick={() => setFilter(c)}
-                className={`px-3 py-1 rounded-full text-xs font-medium border transition ${
-                  filter === c
-                    ? "bg-accent text-accent-foreground border-accent"
-                    : "bg-navy-light/20 text-primary-foreground/70 border-navy-light/40 hover:border-accent/50"
-                }`}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
 
           {error && (
             <Card className="bg-rose-500/10 border-rose-500/30 mb-6">
