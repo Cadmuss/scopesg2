@@ -39,6 +39,12 @@ You are an analyst, not a search engine. When a user asks a broad question:
 - Only expand on a specific item when the user explicitly asks about it
 - Never preemptively explain something they did not ask about
 
+## RESPONSE LENGTH
+- Target 300 words per response — this is a live chat, not a report
+- Before responding, plan your answer so it finishes cleanly within that budget — don't start a section you don't have room to complete
+- Be direct: skip preamble, skip restating the question, skip caveats unless essential
+- If a topic is genuinely broad, give the short scannable version and end with "Want details on any of these?" rather than trying to cover everything
+
 ## SUPERPOWERS
 When asked, you can:
 1. MATCH SG GRANTS — list relevant grants with eligibility, max funding, and apply links
@@ -111,7 +117,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               model: HAIKU_MODEL,
-              max_tokens: 4096,
+              max_tokens: 1000,
               system: SYSTEM_PROMPT,
               messages: anthropicMessages,
               stream: true,
