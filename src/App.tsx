@@ -18,6 +18,7 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Docs from "./pages/Docs";
 import NotFound from "./pages/NotFound";
+import Pricing from "@/pages/Pricing";
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/chat" element={<Chat />} />
+            <Route path="/pricing" element={<Pricing />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/report-success" element={<ReportSuccess />} />
             <Route path="/my-reports" element={<MyReports />} />

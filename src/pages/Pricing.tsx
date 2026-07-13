@@ -13,33 +13,29 @@ const fadeUp = {
   }),
 };
 
-const plans = [
+const features = [
+  "Full AI analyst consultation",
+  "Personalized market intelligence report",
+  "Live web-search-backed data (trends, regulations, competitors)",
+  "Enhance your report — currently included at no extra cost",
+];
+
+const faqs = [
   {
-    name: "Free",
-    price: "$0",
-    period: "forever",
-    desc: "Get started and explore the platform",
-    features: ["5 AI prompts per day", "1 marketplace post per week", "Basic market insights", "Community access"],
-    cta: "Start Free",
-    highlighted: false,
+    q: "What's included in my S$20 report?",
+    a: "A full AI-generated market intelligence report based on your consultation — covering relevant trends, regulations, funding/grants, and risks specific to your business idea.",
   },
   {
-    name: "Pro",
-    price: "$30",
-    period: "/month",
-    desc: "For serious entrepreneurs and SMEs",
-    features: ["Unlimited AI prompts", "5 marketplace posts per week", "Advanced market analysis", "Regulation & policy alerts", "Priority support", "Export reports as PDF"],
-    cta: "Go Pro",
-    highlighted: true,
+    q: "What does \"Enhance\" do?",
+    a: "Enhance lets you deepen or refresh any section of your report after purchase — currently available to every report at no extra charge.",
   },
   {
-    name: "Expert",
-    price: "$100",
-    period: "/month",
-    desc: "Full-suite enterprise intelligence",
-    features: ["Everything in Pro", "Custom research reports", "API access", "Dedicated account manager", "Early feature access", "White-label options"],
-    cta: "Contact Us",
-    highlighted: false,
+    q: "Do I need a subscription?",
+    a: "No — ScopeSG is pay-per-report. No recurring charges, no lock-in.",
+  },
+  {
+    q: "Can I generate multiple reports?",
+    a: "Yes, each report is a separate S$20 purchase — useful if you're evaluating multiple business ideas.",
   },
 ];
 
@@ -51,52 +47,59 @@ const Pricing = () => (
         <div className="container mx-auto px-4">
           <motion.div className="text-center mb-16" initial="hidden" animate="visible" custom={0} variants={fadeUp}>
             <h1 className="text-3xl md:text-5xl font-display font-bold text-foreground mb-4">
-              Choose Your Plan
+              Simple, Transparent Pricing
             </h1>
             <p className="text-muted-foreground text-lg max-w-xl mx-auto">
-              Start free and upgrade as your business grows. No hidden fees.
+              One report. Everything you need to understand your Singapore market.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto">
-            {plans.map((plan, i) => (
-              <motion.div
-                key={plan.name}
-                className={`relative p-8 rounded-2xl border transition-all ${
-                  plan.highlighted
-                    ? "bg-navy-deep text-primary-foreground border-accent/40"
-                    : "bg-card text-foreground border-border"
-                }`}
-                style={{ boxShadow: plan.highlighted ? "var(--shadow-gold)" : "var(--shadow-card)" }}
-                initial="hidden" animate="visible" custom={i + 1} variants={fadeUp}
-              >
-                {plan.highlighted && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-4 py-1 bg-accent text-accent-foreground text-xs font-bold rounded-full">
-                    Most Popular
-                  </span>
-                )}
-                <h3 className="font-display font-bold text-xl mb-1">{plan.name}</h3>
-                <p className={`text-sm mb-4 ${plan.highlighted ? "text-primary-foreground/60" : "text-muted-foreground"}`}>{plan.desc}</p>
-                <div className="flex items-baseline gap-1 mb-6">
-                  <span className="text-4xl font-display font-bold">{plan.price}</span>
-                  <span className={`text-sm ${plan.highlighted ? "text-primary-foreground/50" : "text-muted-foreground"}`}>{plan.period}</span>
+          <motion.div
+            className="max-w-md mx-auto relative p-8 rounded-2xl border bg-navy-deep text-primary-foreground border-accent/40"
+            style={{ boxShadow: "var(--shadow-gold)" }}
+            initial="hidden" animate="visible" custom={1} variants={fadeUp}
+          >
+            <div className="flex items-baseline gap-1 mb-2">
+              <span className="text-5xl font-display font-bold">S$20</span>
+            </div>
+            <p className="text-sm text-primary-foreground/60 mb-6">per report</p>
+
+            <ul className="space-y-3 mb-8">
+              {features.map((f) => (
+                <li key={f} className="flex items-start gap-2 text-sm">
+                  <Check className="w-4 h-4 mt-0.5 shrink-0 text-accent" />
+                  <span>{f}</span>
+                </li>
+              ))}
+            </ul>
+
+            <Link to="/chat">
+              <Button variant="gold" className="w-full gap-2">
+                Get Started <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+
+            <p className="text-xs text-primary-foreground/50 mt-4 text-center">
+              Enhance is currently included with every report. Pricing for individual features may evolve as ScopeSG grows.
+            </p>
+          </motion.div>
+
+          <motion.div
+            className="max-w-2xl mx-auto mt-24"
+            initial="hidden" animate="visible" custom={2} variants={fadeUp}
+          >
+            <h2 className="text-2xl font-display font-bold text-foreground mb-8 text-center">
+              Frequently Asked Questions
+            </h2>
+            <div className="space-y-6">
+              {faqs.map((item) => (
+                <div key={item.q}>
+                  <h3 className="font-display font-semibold text-foreground mb-1">{item.q}</h3>
+                  <p className="text-sm text-muted-foreground">{item.a}</p>
                 </div>
-                <ul className="space-y-3 mb-8">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-start gap-2 text-sm">
-                      <Check className={`w-4 h-4 mt-0.5 shrink-0 text-accent`} />
-                      <span>{f}</span>
-                    </li>
-                  ))}
-                </ul>
-                <Link to="/chat">
-                  <Button variant={plan.highlighted ? "gold" : "outline"} className="w-full gap-2">
-                    {plan.cta} <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
-              </motion.div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </motion.div>
         </div>
       </section>
     </div>
