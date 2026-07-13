@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Send, Bot, User, Briefcase, Users, Wallet, Award, FileText, Loader as Loader2, Sparkles, Target, ClipboardList, MapPin, Calculator, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { Send, Bot, User, Briefcase, Users, Wallet, Award, FileText, Loader as Loader2, Sparkles, Target, ClipboardList, MapPin, Calculator, PanelLeftClose, PanelLeftOpen, AlertCircle, RefreshCw } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import ChatSidebar from "@/components/ChatSidebar";
 import ReactMarkdown from "react-markdown";
@@ -131,6 +131,8 @@ const Chat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [lastFailedInput, setLastFailedInput] = useState<string>("");
   const [isPurchasing, setIsPurchasing] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [limitReached, setLimitReached] = useState(false);
@@ -257,6 +259,8 @@ const Chat = () => {
       const updatedMessages = [...messages, userMsg];
       setMessages(updatedMessages);
       setInput("");
+      setChatError(null);
+      setLastFailedInput(msg);
       setIsLoading(true);
       assistantRef.current = "";
 
@@ -294,6 +298,7 @@ const Chat = () => {
           },
           onError: async (err) => {
             toast.error(err);
+            setChatError(err);
             setIsLoading(false);
             if (convId && assistantRef.current) {
               await history.updateLastAssistantMessage(convId, assistantRef.current);
@@ -301,7 +306,9 @@ const Chat = () => {
           },
         });
       } catch {
-        toast.error("Failed to connect. Please try again.");
+        const msg = "Failed to connect. Please try again.";
+        toast.error(msg);
+        setChatError(msg);
         setIsLoading(false);
       }
     },
@@ -500,6 +507,33 @@ const Chat = () => {
               ))}
             </AnimatePresence>
 
+            {chatError && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="flex gap-3"
+              >
+                <div className="w-8 h-8 rounded-lg bg-destructive/10 flex items-center justify-center shrink-0 mt-1">
+                  <AlertCircle className="w-4 h-4 text-destructive" />
+                </div>
+                <div className="bg-destructive/5 border border-destructive/20 rounded-2xl rounded-bl-md px-4 py-3 max-w-[92%]">
+                  <p className="text-sm text-destructive font-medium mb-2">{chatError}</p>
+                  <button
+                    onClick={() => {
+                      setChatError(null);
+                      if (lastFailedInput) {
+                        setInput(lastFailedInput);
+                      }
+                    }}
+                    className="flex items-center gap-1.5 text-xs text-destructive/80 hover:text-destructive font-medium transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Restore message to try again
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
             {isLoading && messages[messages.length - 1]?.role !== "assistant" && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-3">
                 <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center shrink-0">
@@ -587,14 +621,14 @@ const Chat = () => {
             <div className="flex gap-3 max-w-4xl mx-auto">
               <input
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={(e) => { setInput(e.target.value); if (chatError) setChatError(null); }}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
                 placeholder={
                   !user && limitReached
                     ? "Create a free account to keep chatting…"
                     : "Tell me about your business idea..."
                 }
-                disabled={!user && limitReached}
+                disabled={(!user && limitReached) || isLoading}
                 className="flex-1 bg-muted rounded-xl px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-accent/40 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
               />
               <Button
@@ -602,7 +636,7 @@ const Chat = () => {
                 size="icon"
                 className="h-12 w-12 rounded-xl shrink-0"
                 onClick={() => handleSend()}
-                disabled={!input.trim() || isLoading || (!user && limitReached)}
+                disabled={!input.trim() || isLoading || (!user && limitReached) || !!chatError}
               >
                 <Send className="w-5 h-5" />
               </Button>
