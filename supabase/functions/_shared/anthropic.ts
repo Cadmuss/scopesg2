@@ -35,7 +35,13 @@ export async function callAnthropicTool<T>(opts: {
     body: JSON.stringify({
       model: HAIKU_MODEL,
       max_tokens: opts.maxTokens ?? 2048,
-      system: opts.system,
+      system: [
+  {
+    type: "text",
+    text: opts.system,
+    cache_control: { type: "ephemeral" },
+  },
+],
       messages: [{ role: "user", content: opts.userMessage }],
       tools: [opts.tool],
       tool_choice: { type: "tool", name: opts.tool.name },
@@ -78,7 +84,13 @@ export async function callAnthropicWithSearch<T>(opts: {
     body: JSON.stringify({
       model: HAIKU_MODEL,
       max_tokens: 1500,
-      system: opts.system,
+      system: [
+  {
+    type: "text",
+    text: opts.system,
+    cache_control: { type: "ephemeral" },
+  },
+],
       messages: [{ role: "user", content: opts.userMessage }],
       tools: [{ type: "web_search_20250305", name: "web_search" }],
     }),
@@ -115,7 +127,13 @@ export async function callAnthropicWithSearch<T>(opts: {
     body: JSON.stringify({
       model: HAIKU_MODEL,
       max_tokens: opts.maxTokens ?? 2048,
-      system: opts.system,
+      system: [
+  {
+    type: "text",
+    text: opts.system,
+    cache_control: { type: "ephemeral" },
+  },
+],
       messages: [{
         role: "user",
         content: `Based on this research:\n\n${context}\n\nNow format this into the ${opts.tool.name} tool with 5 items maximum.`
@@ -164,7 +182,13 @@ export async function callAnthropicReportText(opts: {
     body: JSON.stringify({
       model: PREMIUM_REPORT_MODEL,
       max_tokens: opts.maxTokens ?? 8192,
-      system: opts.system,
+      system: [
+  {
+    type: "text",
+    text: opts.system,
+    cache_control: { type: "ephemeral" },
+  },
+],
       messages: [{ role: "user", content: opts.userMessage }],
     }),
   });
