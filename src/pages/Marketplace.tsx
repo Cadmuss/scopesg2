@@ -84,9 +84,17 @@ function PostForm({ initial, onClose, onSaved, userEmail }: PostFormProps) {
         if (error) throw error;
         toast.success("Post updated.");
       } else {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) throw new Error("You must be signed in to post.");
         const { error } = await supabase
           .from("marketplace_posts")
-          .insert({ type, title: title.trim(), description: desc.trim(), user_email: userEmail });
+          .insert({
+            type,
+            title: title.trim(),
+            description: desc.trim(),
+            user_email: session.user.email ?? userEmail,
+            user_id: session.user.id,
+          });
         if (error) throw error;
         toast.success("Post published — visible for 7 days.");
       }
