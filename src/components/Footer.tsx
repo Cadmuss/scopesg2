@@ -10,7 +10,7 @@ const Footer = () => (
             <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
               <TrendingUp className="w-5 h-5 text-accent-foreground" />
             </div>
-            <span className="font-display font-bold text-lg text-primary-foreground">SG Pulse</span>
+            <span className="font-display font-bold text-lg text-primary-foreground">ScopeSG</span>
           </div>
           <p className="text-sm">AI-powered market intelligence for Singapore's entrepreneurs and SMEs.</p>
         </div>
@@ -39,7 +39,7 @@ const Footer = () => (
         </div>
       </div>
       <div className="mt-10 pt-6 border-t border-navy-light/10 text-sm text-center">
-        © 2026 SG Pulse. All rights reserved.
+      © 2026 ScopeSG. All rights reserved.
       </div>
     </div>
   </footer>
