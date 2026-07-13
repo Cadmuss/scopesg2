@@ -120,6 +120,39 @@ export type Database = {
           },
         ]
       }
+      marketplace_posts: {
+        Row: {
+          id: string
+          user_id: string
+          user_email: string
+          type: string
+          title: string
+          description: string
+          created_at: string
+          expires_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string
+          user_email: string
+          type: string
+          title: string
+          description: string
+          created_at?: string
+          expires_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          user_email?: string
+          type?: string
+          title?: string
+          description?: string
+          created_at?: string
+          expires_at?: string
+        }
+        Relationships: []
+      }
       knowledge_base: {
         Row: {
           content: string
