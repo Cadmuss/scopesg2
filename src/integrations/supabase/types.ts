@@ -153,6 +153,27 @@ export type Database = {
         }
         Relationships: []
       }
+      post_reports: {
+        Row: {
+          id: string
+          post_id: string
+          reporter_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          post_id: string
+          reporter_id?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          post_id?: string
+          reporter_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       knowledge_base: {
         Row: {
           content: string

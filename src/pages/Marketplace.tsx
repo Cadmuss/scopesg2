@@ -1,14 +1,27 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { Plus, Clock, Handshake, Briefcase, Users, Megaphone, DollarSign, X, ChevronDown, Mail, RefreshCw, Pencil, CircleAlert as AlertCircle, Loader as Loader2, CircleCheck as CheckCircle2, Calendar } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Plus, Clock, Handshake, Briefcase, Users, Megaphone, DollarSign,
+  X, ChevronDown, Mail, RefreshCw, Pencil, Trash2, Flag,
+  CircleAlert as AlertCircle, Loader as Loader2, CircleCheck as CheckCircle2, Calendar,
+} from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { formatDistanceToNow, format } from "date-fns";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { Filter } from "bad-words";
 
 const profanityFilter = new Filter();
@@ -31,10 +44,10 @@ interface MarketplacePost {
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const TYPES: { value: PostType; label: string; icon: React.ElementType; color: string }[] = [
-  { value: "funding",     label: "Funding",      icon: DollarSign, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
-  { value: "partnership", label: "Partnership",  icon: Handshake,  color: "text-blue-600   bg-blue-50   border-blue-200"   },
-  { value: "hiring",      label: "Hiring",       icon: Users,      color: "text-violet-600 bg-violet-50 border-violet-200" },
-  { value: "general",     label: "General",      icon: Megaphone,  color: "text-amber-600  bg-amber-50  border-amber-200"  },
+  { value: "funding",     label: "Funding",     icon: DollarSign, color: "text-emerald-600 bg-emerald-50 border-emerald-200" },
+  { value: "partnership", label: "Partnership", icon: Handshake,  color: "text-blue-600   bg-blue-50   border-blue-200"   },
+  { value: "hiring",      label: "Hiring",      icon: Users,      color: "text-violet-600 bg-violet-50 border-violet-200" },
+  { value: "general",     label: "General",     icon: Megaphone,  color: "text-amber-600  bg-amber-50  border-amber-200"  },
 ];
 
 const TYPE_MAP = Object.fromEntries(TYPES.map((t) => [t.value, t])) as Record<PostType, typeof TYPES[number]>;
@@ -110,7 +123,8 @@ function PostForm({ initial, onClose, onSaved, userEmail }: PostFormProps) {
       onSaved();
       onClose();
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Something went wrong.");
+      const msg = err instanceof Error ? err.message : "Something went wrong.";
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -123,7 +137,6 @@ function PostForm({ initial, onClose, onSaved, userEmail }: PostFormProps) {
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
 
       <motion.div
@@ -143,7 +156,6 @@ function PostForm({ initial, onClose, onSaved, userEmail }: PostFormProps) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Type selector */}
           <div>
             <label className="block text-xs font-medium text-primary-foreground/60 mb-2 uppercase tracking-wide">Type</label>
             <div className="grid grid-cols-2 gap-2">
@@ -168,7 +180,6 @@ function PostForm({ initial, onClose, onSaved, userEmail }: PostFormProps) {
             </div>
           </div>
 
-          {/* Title */}
           <div>
             <label className="block text-xs font-medium text-primary-foreground/60 mb-1.5 uppercase tracking-wide">Title</label>
             <input
@@ -181,7 +192,6 @@ function PostForm({ initial, onClose, onSaved, userEmail }: PostFormProps) {
             />
           </div>
 
-          {/* Description */}
           <div>
             <label className="block text-xs font-medium text-primary-foreground/60 mb-1.5 uppercase tracking-wide">Description</label>
             <textarea
@@ -224,17 +234,32 @@ interface PostCardProps {
   isExpired: boolean;
   onEdit: (post: MarketplacePost) => void;
   onRenew: (postId: string) => void;
+  onDelete: (postId: string) => void;
+  onReport: (postId: string) => void;
+  reported: boolean;
   index: number;
 }
 
-function PostCard({ post, isOwn, isExpired, onEdit, onRenew, index }: PostCardProps) {
+function PostCard({ post, isOwn, isExpired, onEdit, onRenew, onDelete, onReport, reported, index }: PostCardProps) {
   const [showEmail, setShowEmail] = useState(false);
   const [renewing, setRenewing] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [reportOpen, setReportOpen] = useState(false);
 
   const handleRenew = async () => {
     setRenewing(true);
     await onRenew(post.id);
     setRenewing(false);
+  };
+
+  const handleDelete = () => {
+    setDeleteOpen(false);
+    onDelete(post.id);
+  };
+
+  const handleReport = () => {
+    setReportOpen(false);
+    onReport(post.id);
   };
 
   const expiresIn = formatDistanceToNow(new Date(post.expires_at), { addSuffix: true });
@@ -254,7 +279,6 @@ function PostCard({ post, isOwn, isExpired, onEdit, onRenew, index }: PostCardPr
       custom={index}
       variants={fadeUp}
     >
-      {/* Top row */}
       <div className="flex items-start justify-between gap-3">
         <TypeBadge type={post.type} />
         {isExpired ? (
@@ -268,7 +292,6 @@ function PostCard({ post, isOwn, isExpired, onEdit, onRenew, index }: PostCardPr
         )}
       </div>
 
-      {/* Content */}
       <div className="flex-1">
         <h3 className="font-display font-semibold text-foreground mb-1.5 group-hover:text-accent transition-colors leading-snug">
           {post.title}
@@ -276,7 +299,6 @@ function PostCard({ post, isOwn, isExpired, onEdit, onRenew, index }: PostCardPr
         <p className="text-sm text-muted-foreground leading-relaxed line-clamp-3">{post.description}</p>
       </div>
 
-      {/* Footer */}
       <div className="border-t border-border pt-3 flex items-center justify-between gap-3">
         <span className="text-xs text-muted-foreground">{postedAt}</span>
 
@@ -301,11 +323,39 @@ function PostCard({ post, isOwn, isExpired, onEdit, onRenew, index }: PostCardPr
                 {renewing
                   ? <Loader2 className="w-3 h-3 animate-spin" />
                   : <RefreshCw className="w-3 h-3" />}
-                {isExpired ? "Renew" : "Renew"}
+                Renew
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5 h-8 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => setDeleteOpen(true)}
+              >
+                <Trash2 className="w-3 h-3" /> Delete
+              </Button>
+
+              <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete this post?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This can't be undone. The post will be permanently removed from the marketplace.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </>
           ) : (
-            <div className="relative">
+            <div className="flex items-center gap-2">
               {showEmail ? (
                 <motion.a
                   href={`mailto:${post.user_email}`}
@@ -326,6 +376,38 @@ function PostCard({ post, isOwn, isExpired, onEdit, onRenew, index }: PostCardPr
                   <ChevronDown className="w-3 h-3" /> Respond
                 </Button>
               )}
+
+              {reported ? (
+                <span className="text-xs text-muted-foreground italic">Reported</span>
+              ) : (
+                <>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="gap-1.5 h-8 text-xs text-muted-foreground hover:text-destructive"
+                    onClick={() => setReportOpen(true)}
+                  >
+                    <Flag className="w-3 h-3" /> Report
+                  </Button>
+
+                  <AlertDialog open={reportOpen} onOpenChange={setReportOpen}>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Report this post?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Report this post for inappropriate content? Our team will review it manually.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={handleReport}>
+                          Report
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -336,10 +418,11 @@ function PostCard({ post, isOwn, isExpired, onEdit, onRenew, index }: PostCardPr
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type FilterTab = "all" | PostType;
+type FilterTab = "all" | "mine" | PostType;
 
 const TABS: { value: FilterTab; label: string }[] = [
   { value: "all",         label: "All" },
+  { value: "mine",        label: "My Posts" },
   { value: "funding",     label: "Funding" },
   { value: "partnership", label: "Partnership" },
   { value: "hiring",      label: "Hiring" },
@@ -354,8 +437,9 @@ const Marketplace = () => {
   const [filter,        setFilter]        = useState<FilterTab>("all");
   const [showForm,      setShowForm]      = useState(false);
   const [editingPost,   setEditingPost]   = useState<MarketplacePost | null>(null);
+  const [reportedIds,   setReportedIds]   = useState<Set<string>>(new Set());
 
-  const fetchPosts = async () => {
+  const fetchPosts = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase
       .from("marketplace_posts")
@@ -368,9 +452,9 @@ const Marketplace = () => {
       setPosts((data as MarketplacePost[]) ?? []);
     }
     setLoading(false);
-  };
+  }, []);
 
-  useEffect(() => { fetchPosts(); }, []);
+  useEffect(() => { fetchPosts(); }, [fetchPosts]);
 
   const handleRenew = async (postId: string) => {
     const { error } = await supabase
@@ -385,19 +469,61 @@ const Marketplace = () => {
     }
   };
 
+  const handleDelete = async (postId: string) => {
+    const { error } = await supabase
+      .from("marketplace_posts")
+      .delete()
+      .eq("id", postId);
+    if (error) {
+      toast.error("Could not delete post.");
+    } else {
+      toast.success("Post deleted.");
+      await fetchPosts();
+    }
+  };
+
+  const handleReport = async (postId: string) => {
+    if (!user) return;
+    const { error } = await supabase
+      .from("post_reports")
+      .insert({ post_id: postId, reporter_id: user.id });
+    if (error) {
+      toast.error("Could not submit report.");
+    } else {
+      toast.success("Report submitted. Our team will review it.");
+      setReportedIds((prev) => new Set(prev).add(postId));
+    }
+  };
+
   const now = new Date();
   const activePosts = posts.filter((p) => new Date(p.expires_at) > now);
-  const myExpiredPosts = user
-    ? posts.filter((p) => p.user_id === user.id && new Date(p.expires_at) <= now)
-    : [];
 
-  const filteredActive = filter === "all"
-    ? activePosts
-    : activePosts.filter((p) => p.type === filter);
+  // Build the display list based on the active filter tab
+  let displayPosts: MarketplacePost[];
+  if (filter === "mine") {
+    displayPosts = user
+      ? posts.filter((p) => p.user_id === user.id)
+      : [];
+  } else if (filter === "all") {
+    displayPosts = activePosts;
+  } else {
+    displayPosts = activePosts.filter((p) => p.type === filter);
+  }
+
+  // Count for "My Posts" tab badge
+  const myPostsCount = user
+    ? posts.filter((p) => p.user_id === user.id).length
+    : 0;
 
   const openCreateForm  = () => { setEditingPost(null); setShowForm(true); };
   const openEditForm    = (post: MarketplacePost) => { setEditingPost(post); setShowForm(true); };
   const closeForm       = () => { setShowForm(false); setEditingPost(null); };
+
+  const getTabCount = (tab: FilterTab): number | null => {
+    if (tab === "all") return activePosts.length;
+    if (tab === "mine") return myPostsCount;
+    return activePosts.filter((p) => p.type === tab).length;
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -433,56 +559,61 @@ const Marketplace = () => {
           <div className="container mx-auto px-4">
             {/* Filter tabs */}
             <div className="flex flex-wrap gap-2 mb-8">
-              {TABS.map((tab) => (
-                <button
-                  key={tab.value}
-                  onClick={() => setFilter(tab.value)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
-                    filter === tab.value
-                      ? "bg-navy-deep text-primary-foreground border-accent/50 shadow-sm"
-                      : "bg-card text-muted-foreground border-border hover:border-accent/30 hover:text-foreground"
-                  }`}
-                >
-                  {tab.label}
-                  {tab.value !== "all" && (
-                    <span className="ml-1.5 text-xs opacity-60">
-                      {activePosts.filter((p) => p.type === tab.value).length}
-                    </span>
-                  )}
-                  {tab.value === "all" && (
-                    <span className="ml-1.5 text-xs opacity-60">{activePosts.length}</span>
-                  )}
-                </button>
-              ))}
+              {TABS.map((tab) => {
+                const count = getTabCount(tab.value);
+                return (
+                  <button
+                    key={tab.value}
+                    onClick={() => setFilter(tab.value)}
+                    className={`px-4 py-2 rounded-full text-sm font-medium border transition-all ${
+                      filter === tab.value
+                        ? "bg-navy-deep text-primary-foreground border-accent/50 shadow-sm"
+                        : "bg-card text-muted-foreground border-border hover:border-accent/30 hover:text-foreground"
+                    }`}
+                  >
+                    {tab.label}
+                    {count !== null && (
+                      <span className="ml-1.5 text-xs opacity-60">{count}</span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {loading ? (
               <div className="flex items-center justify-center py-24">
                 <Loader2 className="w-7 h-7 animate-spin text-accent" />
               </div>
-            ) : filteredActive.length === 0 ? (
+            ) : displayPosts.length === 0 ? (
               <motion.div
                 className="text-center py-24"
                 initial={{ opacity: 0 }} animate={{ opacity: 1 }}
               >
                 <Briefcase className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
-                <p className="text-muted-foreground font-medium">No posts yet in this category.</p>
+                <p className="text-muted-foreground font-medium">
+                  {filter === "mine"
+                    ? "You haven't posted anything yet."
+                    : "No posts yet in this category."}
+                </p>
                 {user && (
                   <Button variant="gold" className="mt-4 gap-2" onClick={openCreateForm}>
-                    <Plus className="w-4 h-4" /> Be the first to post
+                    <Plus className="w-4 h-4" /> Post a Request
                   </Button>
                 )}
               </motion.div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {filteredActive.map((post, i) => (
+                {displayPosts.map((post, i) => (
                   <PostCard
                     key={post.id}
                     post={post}
                     isOwn={user?.id === post.user_id}
-                    isExpired={false}
+                    isExpired={new Date(post.expires_at) <= now}
                     onEdit={openEditForm}
                     onRenew={handleRenew}
+                    onDelete={handleDelete}
+                    onReport={handleReport}
+                    reported={reportedIds.has(post.id)}
                     index={i}
                   />
                 ))}
@@ -490,32 +621,6 @@ const Marketplace = () => {
             )}
           </div>
         </section>
-
-        {/* My expired posts */}
-        {myExpiredPosts.length > 0 && (
-          <section className="py-8 border-t border-border">
-            <div className="container mx-auto px-4">
-              <div className="flex items-center gap-2 mb-6">
-                <Clock className="w-4 h-4 text-destructive" />
-                <h2 className="font-display font-semibold text-foreground">My Expired Posts</h2>
-                <span className="text-xs text-muted-foreground ml-1">— renew to reactivate</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                {myExpiredPosts.map((post, i) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    isOwn
-                    isExpired
-                    onEdit={openEditForm}
-                    onRenew={handleRenew}
-                    index={i}
-                  />
-                ))}
-              </div>
-            </div>
-          </section>
-        )}
       </div>
 
       <Footer />
