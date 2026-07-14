@@ -9,7 +9,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { formatDistanceToNow, format } from "date-fns";
 import { formatDistanceToNow, format } from "date-fns";
-import Filter from "bad-words";
+import { Filter } from "bad-words";
 
 const profanityFilter = new Filter();
 
