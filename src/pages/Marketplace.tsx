@@ -8,6 +8,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
+import Filter from "bad-words";
+
+const profanityFilter = new Filter();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -74,6 +78,11 @@ function PostForm({ initial, onClose, onSaved, userEmail }: PostFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !desc.trim()) return;
+    if (profanityFilter.isProfane(title) || profanityFilter.isProfane(desc)) {
+      toast.error("Your post contains inappropriate language. Please revise it.");
+      return;
+    }
+
     setSaving(true);
     try {
       if (isEdit) {
