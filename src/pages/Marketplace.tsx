@@ -124,7 +124,9 @@ function PostForm({ initial, onClose, onSaved, userEmail }: PostFormProps) {
       onClose();
     } catch (err: unknown) {
       console.error("RAW ERROR:", err);
-      const msg = err instanceof Error ? err.message : "Something went wrong.";
+      const msg = (err && typeof err === "object" && "message" in err)
+        ? String((err as { message: string }).message)
+        : "Something went wrong.";
       toast.error(msg);
     } finally {
       setSaving(false);
