@@ -1,73 +1,38 @@
-# Welcome to your Lovable project
+# ScopeSG
 
-## Project info
+AI-powered market intelligence for Singapore's SMEs and entrepreneurs.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+![ScopeSG Screenshot](public/og-image.png)
 
-## How can I edit this code?
+Live demo: [[scopesg2.vercel.app](http://scopesg2.vercel.app)]([https://scopesg2.vercel.app](https://scopesg2.vercel.app))
 
-There are several ways of editing your application.
+## Why I built this
 
-**Use Lovable**
+Singapore has a lot of support for SMEs — grants, schemes, regulatory guidance — but it's scattered across dozens of government sites and PDFs. If you're a founder trying to figure out what grants you qualify for, what licenses you need, or what hiring will actually cost after CPF, there's no easy starting point.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+ScopeSG is an AI analyst that understands Singapore's specific business landscape and gives founders a fast, grounded read on their idea — grants, compliance, costs, competitors — before they commit real time or money.
 
-Changes made via Lovable will be committed automatically to this repo.
+Starting a business/startup can be daunting. Many costs add up, with uncertainty. Why not leverage on ScopeSG to garner more detailed, planned information at a small cost of $20, compared to struggling over regulatory concerns and other matters?
 
-**Use your preferred IDE**
+I built this to combine my interest in Singapore's SME and policy space (I study Public Policy & Global Affairs at NTU) with hands-on product work — the AI integration, the database and security decisions, the pricing model, all of it.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## What it does
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+- AI chat consultant that asks about your business idea and gives Singapore-specific guidance, not generic startup advice
 
-Follow these steps:
+- One-click tools: grant matching, compliance checklists, location comparisons, CPF/hiring cost calculators
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+- Paid market intelligence reports (S$20) with live web search for current data
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+- A marketplace where founders can post funding requests, partnerships, or hiring needs
 
-# Step 3: Install the necessary dependencies.
-npm i
+- Market trends and news pages
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+## Stack
 
-**Edit a file directly in GitHub**
+React, TypeScript, Vite, Tailwind, Supabase (Postgres, Auth, RLS, Edge Functions), Claude (Anthropic API), Stripe, deployed on Vercel.
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+Built using Bolt and Cursor for development, with Claude also assisting on architecture, debugging, and security review throughout.
 
-**Use GitHub Codespaces**
+Cadmus Chau — NTU, Public Policy & Global Affairs
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
