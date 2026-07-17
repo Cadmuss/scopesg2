@@ -108,7 +108,7 @@ const Trends = () => {
                   Singapore Market Trends
                 </h1>
                 <p className="text-muted-foreground mt-1">
-                  AI-powered insights for Singapore entrepreneurs
+                  AI-powered insights for Singapore entrepreneurs. Updated weekly.
                 </p>
               </div>
             </div>

@@ -106,7 +106,7 @@ const News = () => {
               News & Predicted Market Shifts
             </h1>
             <p className="text-primary-foreground/70 max-w-2xl">
-              AI-curated global and Singapore news from reputable sources, with predicted impact analysis. Auto-refreshed every 6 hours.
+              AI-curated global and Singapore news from reputable sources, with predicted impact analysis. Updated weekly.
             </p>
             {updatedAt && (
               <p className="text-primary-foreground/40 text-xs mt-2">
