@@ -123,6 +123,7 @@ function PostForm({ initial, onClose, onSaved, userEmail }: PostFormProps) {
       onSaved();
       onClose();
     } catch (err: unknown) {
+      console.error("RAW ERROR:", err);
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       toast.error(msg);
     } finally {
