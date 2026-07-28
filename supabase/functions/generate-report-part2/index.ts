@@ -53,8 +53,9 @@ serve(async (req) => {
       ? order.consultation_data
       : JSON.parse(order.consultation_data || "[]");
 
-    const conversationText = conversation
-      .map((msg: any) => `${msg.role.toUpperCase()}: ${msg.content}`)
+      const conversationText = conversation
+      .filter((msg: any) => msg.role === "user")
+      .map((msg: any) => msg.content)
       .join("\n\n");
 
     const system = "You are an expert business analyst specialising in the Singapore market.";
