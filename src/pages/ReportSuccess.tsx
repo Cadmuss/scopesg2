@@ -49,30 +49,38 @@ const ReportSuccess = () => {
         }
 
         if (orderRow?.status === "paid" || orderRow?.status === "completed") {
-       // Step 1: Get web search results
-const firstUserMsg = orderRow.consultation_data
-? (Array.isArray(orderRow.consultation_data) 
-    ? orderRow.consultation_data 
-    : JSON.parse(orderRow.consultation_data)
-  ).find((m: any) => m.role === "user")
-: null;
+          // Step 1: Get web search results
+          const firstUserMsg = orderRow.consultation_data
+            ? (Array.isArray(orderRow.consultation_data)
+                ? orderRow.consultation_data
+                : JSON.parse(orderRow.consultation_data)
+              ).find((m: any) => m.role === "user")
+            : null;
 
-const businessContext = firstUserMsg?.content?.slice(0, 200) || "Singapore business";
+          const businessContext = firstUserMsg?.content?.slice(0, 200) || "Singapore business";
 
-const { data: searchData } = await supabase.functions.invoke("web-search", {
-body: { businessContext },
-});
+          const { data: searchData } = await supabase.functions.invoke("web-search", {
+            body: { businessContext },
+          });
 
-const searchResults = searchData?.searchResults || "";
+          const searchResults = searchData?.searchResults || "";
 
-// Step 2: Generate report with search results
-const { data, error: fnError } = await supabase.functions.invoke("generate-report", {
-body: { orderId, searchResults },
-});
-          if (fnError) throw fnError;
-          if (data?.error) throw new Error(data.error);
-          if (data?.report) {
-            setReport(data.report);
+          // Step 2: Generate Part 1
+          const { data: part1Data, error: part1Error } = await supabase.functions.invoke("generate-report-part1", {
+            body: { orderId, searchResults },
+          });
+          if (part1Error) throw part1Error;
+          if (part1Data?.error) throw new Error(part1Data.error);
+
+          // Step 3: Generate Part 2 (combines with Part 1, saves final report)
+          const { data: part2Data, error: part2Error } = await supabase.functions.invoke("generate-report-part2", {
+            body: { orderId, searchResults },
+          });
+          if (part2Error) throw part2Error;
+          if (part2Data?.error) throw new Error(part2Data.error);
+
+          if (part2Data?.report) {
+            setReport(part2Data.report);
             setLoading(false);
           } else {
             pollForReport();
