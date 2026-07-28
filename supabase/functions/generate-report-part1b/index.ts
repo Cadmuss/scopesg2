@@ -38,13 +38,19 @@ serve(async (req) => {
     }
 
     if (order.report_content) {
-      return new Response(JSON.stringify({ report: order.report_content }), {
+      return new Response(JSON.stringify({ done: true, report: order.report_content }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    if (!order.report_part1a || !order.report_part1b) {
-      return new Response(JSON.stringify({ error: "Earlier parts not generated yet" }), {
+    if (order.report_part1b) {
+      return new Response(JSON.stringify({ part1bReady: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!order.report_part1a) {
+      return new Response(JSON.stringify({ error: "Part 1a not generated yet" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -60,63 +66,44 @@ serve(async (req) => {
 
     const system = "You are an expert business analyst specialising in the Singapore market.";
 
-    const disclaimer = `<div style="background:#fff8e6;border-left:4px solid #c9a84c;padding:15px 20px;margin:20px 0;font-size:0.85em;color:#856404;font-family:sans-serif;">
-      <strong>⚠️ Disclaimer:</strong> This report incorporates real-time web search data current as of the report date. All regulatory information, competitor data, and market figures should be independently verified before making business decisions. This does not constitute professional legal, financial, or business advice.
-    </div>`;
-
-    console.log("Generating Part 2 (Recommendations, KPIs, Verdict)...");
+    console.log("Generating Part 1b (Competitive Landscape + SWOT)...");
     const raw = await callAnthropicReportText({
       system,
       userMessage: `Based on this business idea:
 
 ${conversationText}
 
-AND this real-time market research:
+AND this real-time market research data:
 
-${searchResults || "No additional search data available."}
+${searchResults || "No additional search data available — use your training knowledge."}
 
-Generate ONLY these sections of a premium competitive intelligence report. Return ONLY the inner HTML (no <!DOCTYPE>, no <html>, no <head>, no <style> tags — inline styles only).
+Generate ONLY these two sections of a premium competitive intelligence report. Return ONLY the inner HTML (no <!DOCTYPE>, no <html>, no <head>, no <style> tags — inline styles only).
 
 Include ONLY:
-1. Market Positioning Recommendations — exactly 6 recommendations, ordered strictly HIGH priority first, then MEDIUM, then LOW
-2. Key Performance Indicators — 90-Day Tracking Framework (table with specific SGD targets)
-3. Star Ratings Legend (★ Weak to ★★★★★ Market Leader)
-4. Verdict Strip — a short, specific conclusion referencing this exact business
+1. Competitive Landscape — table with REAL competitor names, actual SGD pricing, key positioning, presence (use specific data from search results)
+2. SWOT Analysis — 4 points each (Strengths, Weaknesses, Opportunities, Threats)
 
 IMPORTANT:
 - Use navy (#0a1628) and gold (#c9a84c) color theme with inline styles
 - Start directly with <div> or <section>
 - End with </div> — no </body> or </html>
-- Return ONLY raw HTML, no markdown, no code blocks, no pipe tables, no headers with #
-- Do NOT write in a conversational or explanatory tone — this is a formal report section, not an answer to a question
-- Complete ALL sections fully within the space given — do not write long paragraphs of general advice`,
-      maxTokens: 2200,
+- Return ONLY raw HTML, no markdown, no code blocks, no pipe tables
+- Do NOT include recommendations, KPIs, or verdict
+- Use SPECIFIC data from search results — real names, real prices`,
+      maxTokens: 3000,
     });
 
-    const cleanPart2 = raw
+    const clean = raw
       .replace(/^```html\s*/i, "")
       .replace(/^```\s*/i, "")
       .replace(/```\s*$/i, "")
       .trim();
 
-    const fullReport = `${order.report_part1a}
-    
-    ${order.report_part1b}
-    
-    ${disclaimer}
-    
-    ${cleanPart2}
-    
-    </body></html>`;
+    await supabase.from("report_orders").update({ report_part1b: clean }).eq("id", order.id);
 
-    await supabase
-      .from("report_orders")
-      .update({ report_content: fullReport, status: "completed" })
-      .eq("id", order.id);
+    console.log("Part 1b saved successfully");
 
-    console.log("Report saved successfully");
-
-    return new Response(JSON.stringify({ report: fullReport }), {
+    return new Response(JSON.stringify({ part1bReady: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 

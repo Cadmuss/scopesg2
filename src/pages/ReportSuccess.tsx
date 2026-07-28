@@ -49,7 +49,6 @@ const ReportSuccess = () => {
         }
 
         if (orderRow?.status === "paid" || orderRow?.status === "completed") {
-          // Step 1: Get web search results
           const firstUserMsg = orderRow.consultation_data
             ? (Array.isArray(orderRow.consultation_data)
                 ? orderRow.consultation_data
@@ -65,22 +64,26 @@ const ReportSuccess = () => {
 
           const searchResults = searchData?.searchResults || "";
 
-          // Step 2: Generate Part 1
-          const { data: part1Data, error: part1Error } = await supabase.functions.invoke("generate-report-part1", {
+          const { data: p1aData, error: p1aError } = await supabase.functions.invoke("generate-report-part1a", {
             body: { orderId, searchResults },
           });
-          if (part1Error) throw part1Error;
-          if (part1Data?.error) throw new Error(part1Data.error);
+          if (p1aError) throw p1aError;
+          if (p1aData?.error) throw new Error(p1aData.error);
 
-          // Step 3: Generate Part 2 (combines with Part 1, saves final report)
-          const { data: part2Data, error: part2Error } = await supabase.functions.invoke("generate-report-part2", {
+          const { data: p1bData, error: p1bError } = await supabase.functions.invoke("generate-report-part1b", {
             body: { orderId, searchResults },
           });
-          if (part2Error) throw part2Error;
-          if (part2Data?.error) throw new Error(part2Data.error);
+          if (p1bError) throw p1bError;
+          if (p1bData?.error) throw new Error(p1bData.error);
 
-          if (part2Data?.report) {
-            setReport(part2Data.report);
+          const { data: p2Data, error: p2Error } = await supabase.functions.invoke("generate-report-part2", {
+            body: { orderId, searchResults },
+          });
+          if (p2Error) throw p2Error;
+          if (p2Data?.error) throw new Error(p2Data.error);
+
+          if (p2Data?.report) {
+            setReport(p2Data.report);
             setLoading(false);
           } else {
             pollForReport();
