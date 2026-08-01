@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callAnthropicReportText } from "../_shared/anthropic.ts";
+import { callAnthropicTool } from "../_shared/anthropic.ts";
+import { REPORT_DATA_A_TOOL, ReportDataA } from "../_shared/report-template.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,8 +50,8 @@ serve(async (req) => {
       });
     }
 
-    if (order.report_part1a) {
-      return new Response(JSON.stringify({ part1aReady: true }), {
+    if (order.report_data_a) {
+      return new Response(JSON.stringify({ dataAReady: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -64,53 +65,29 @@ serve(async (req) => {
       .map((msg: any) => msg.content)
       .join("\n\n");
 
-    const system = "You are an expert business analyst specialising in the Singapore market.";
+    const system = "You are an expert business analyst specialising in the Singapore market. You produce structured data, not prose or HTML.";
 
-    console.log("Generating Part 1a (Header + Executive Summary)...");
-    const raw = await callAnthropicReportText({
+    console.log("Generating Data A (overview, competitors, SWOT)...");
+    const dataA = await callAnthropicTool<ReportDataA>({
       system,
       userMessage: `Based on this business idea:
 
 ${conversationText}
 
-AND this real-time market research data:
+AND this real-time market research:
 
 ${searchResults || "No additional search data available — use your training knowledge."}
 
-Generate ONLY the opening section of a premium competitive intelligence HTML report — nothing else.
-
-Return a COMPLETE valid HTML document starting with <!DOCTYPE html>, with all CSS in a <style> tag in <head>.
-
-Include ONLY:
-1. Header with business name, report date, subtitle
-2. Executive Summary with 4 key stats (market size, projected size, CAGR, number of competitors) and a short paragraph
-
-IMPORTANT:
-- Use navy (#0a1628) and gold (#c9a84c) color theme
-- End the document with </body></html>
-- Do NOT include competitive landscape, SWOT, recommendations, or anything else
-- Return ONLY raw HTML, no markdown, no code blocks
-- Be concise — this is only the opening section, keep it tight`,
-      maxTokens: 2200,
+Fill in the report overview data using the submit_report_overview tool. Use REAL competitor names, ACTUAL current SGD prices, and LATEST information from the search data above. Be specific — no vague statements. All text fields should be plain text, no markdown formatting.`,
+      tool: REPORT_DATA_A_TOOL,
+      maxTokens: 3000,
     });
 
-    let clean = raw
-      .replace(/^```html\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/```\s*$/i, "")
-      .trim()
-      .replace(/<\/body>\s*<\/html>\s*$/i, "")
-      .trim();
+    await supabase.from("report_orders").update({ report_data_a: dataA }).eq("id", order.id);
 
-    if (!clean.toLowerCase().startsWith("<!doctype")) {
-      clean = "<!DOCTYPE html>\n<html lang='en'>\n" + clean;
-    }
+    console.log("Data A saved successfully");
 
-    await supabase.from("report_orders").update({ report_part1a: clean }).eq("id", order.id);
-
-    console.log("Part 1a saved successfully");
-
-    return new Response(JSON.stringify({ part1aReady: true }), {
+    return new Response(JSON.stringify({ dataAReady: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 

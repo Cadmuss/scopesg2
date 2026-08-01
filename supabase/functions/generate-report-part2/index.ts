@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callAnthropicReportText } from "../_shared/anthropic.ts";
+import { callAnthropicTool } from "../_shared/anthropic.ts";
+import { REPORT_DATA_B_TOOL, ReportDataA, ReportDataB, renderReportHtml } from "../_shared/report-template.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -43,8 +44,8 @@ serve(async (req) => {
       });
     }
 
-    if (!order.report_part1a || !order.report_part1b) {
-      return new Response(JSON.stringify({ error: "Earlier parts not generated yet" }), {
+    if (!order.report_data_a) {
+      return new Response(JSON.stringify({ error: "Report overview not generated yet" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -58,14 +59,10 @@ serve(async (req) => {
       .map((msg: any) => msg.content)
       .join("\n\n");
 
-    const system = "You are an expert business analyst specialising in the Singapore market.";
+    const system = "You are an expert business analyst specialising in the Singapore market. You produce structured data, not prose or HTML.";
 
-    const disclaimer = `<div style="background:#fff8e6;border-left:4px solid #c9a84c;padding:15px 20px;margin:20px 0;font-size:0.85em;color:#856404;font-family:sans-serif;">
-      <strong>⚠️ Disclaimer:</strong> This report incorporates real-time web search data current as of the report date. All regulatory information, competitor data, and market figures should be independently verified before making business decisions. This does not constitute professional legal, financial, or business advice.
-    </div>`;
-
-    console.log("Generating Part 2 (Recommendations, KPIs, Verdict)...");
-    const raw = await callAnthropicReportText({
+    console.log("Generating Data B (recommendations, KPIs, verdict)...");
+    const dataB = await callAnthropicTool<ReportDataB>({
       system,
       userMessage: `Based on this business idea:
 
@@ -75,46 +72,22 @@ AND this real-time market research:
 
 ${searchResults || "No additional search data available."}
 
-Generate ONLY these sections of a premium competitive intelligence report. Return ONLY the inner HTML (no <!DOCTYPE>, no <html>, no <head>, no <style> tags — inline styles only).
-
-Include ONLY:
-1. Market Positioning Recommendations — exactly 6 recommendations, ordered strictly HIGH priority first, then MEDIUM, then LOW
-2. Key Performance Indicators — 90-Day Tracking Framework (table with specific SGD targets)
-3. Star Ratings Legend (★ Weak to ★★★★★ Market Leader)
-4. Verdict Strip — a short, specific conclusion referencing this exact business
-
-IMPORTANT:
-- Use navy (#0a1628) and gold (#c9a84c) color theme with inline styles
-- Start directly with <div> or <section>
-- End with </div> — no </body> or </html>
-- Return ONLY raw HTML, no markdown, no code blocks, no pipe tables, no headers with #
-- Do NOT write in a conversational or explanatory tone — this is a formal report section, not an answer to a question
-- Complete ALL sections fully within the space given — do not write long paragraphs of general advice`,
-      maxTokens: 2200,
+Fill in the recommendations data using the submit_report_recommendations tool. Exactly 6 recommendations, ordered HIGH priority first, then MEDIUM, then LOW. Be specific to this exact business — no generic advice. All text fields should be plain text, no markdown formatting.`,
+      tool: REPORT_DATA_B_TOOL,
+      maxTokens: 2500,
     });
 
-    const cleanPart2 = raw
-      .replace(/^```html\s*/i, "")
-      .replace(/^```\s*/i, "")
-      .replace(/```\s*$/i, "")
-      .trim();
+    await supabase.from("report_orders").update({ report_data_b: dataB }).eq("id", order.id);
 
-    const fullReport = `${order.report_part1a}
-    
-    ${order.report_part1b}
-    
-    ${disclaimer}
-    
-    ${cleanPart2}
-    
-    </body></html>`;
+    const dataA = order.report_data_a as ReportDataA;
+    const fullReport = renderReportHtml(dataA, dataB);
 
     await supabase
       .from("report_orders")
       .update({ report_content: fullReport, status: "completed" })
       .eq("id", order.id);
 
-    console.log("Report saved successfully");
+    console.log("Report rendered and saved successfully");
 
     return new Response(JSON.stringify({ report: fullReport }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

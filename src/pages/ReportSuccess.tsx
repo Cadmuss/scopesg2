@@ -64,26 +64,20 @@ const ReportSuccess = () => {
 
           const searchResults = searchData?.searchResults || "";
 
-          const { data: p1aData, error: p1aError } = await supabase.functions.invoke("generate-report-part1a", {
+          const { data: dataAResult, error: dataAError } = await supabase.functions.invoke("generate-report-part1a", {
             body: { orderId, searchResults },
           });
-          if (p1aError) throw p1aError;
-          if (p1aData?.error) throw new Error(p1aData.error);
+          if (dataAError) throw dataAError;
+          if (dataAResult?.error) throw new Error(dataAResult.error);
 
-          const { data: p1bData, error: p1bError } = await supabase.functions.invoke("generate-report-part1b", {
+          const { data: dataBResult, error: dataBError } = await supabase.functions.invoke("generate-report-part2", {
             body: { orderId, searchResults },
           });
-          if (p1bError) throw p1bError;
-          if (p1bData?.error) throw new Error(p1bData.error);
+          if (dataBError) throw dataBError;
+          if (dataBResult?.error) throw new Error(dataBResult.error);
 
-          const { data: p2Data, error: p2Error } = await supabase.functions.invoke("generate-report-part2", {
-            body: { orderId, searchResults },
-          });
-          if (p2Error) throw p2Error;
-          if (p2Data?.error) throw new Error(p2Data.error);
-
-          if (p2Data?.report) {
-            setReport(p2Data.report);
+          if (dataBResult?.report) {
+            setReport(dataBResult.report);
             setLoading(false);
           } else {
             pollForReport();
