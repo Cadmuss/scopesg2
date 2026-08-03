@@ -80,8 +80,7 @@ ${searchResults || "No additional search data available — use your training kn
 
 Fill in the report overview data using the submit_report_overview tool. Use REAL competitor names, ACTUAL current SGD prices, and LATEST information from the search data above. Be specific — no vague statements. All text fields should be plain text, no markdown formatting.
 
-Also include realistic unit economics (cost per cup, price, margin, breakeven volume) and a risk register of 4-5 specific risks with mitigations, based on the business details given.',
-
+Also include realistic unit economics (cost per cup, price, margin, breakeven volume) and a risk register of 4-5 specific risks with mitigations, based on the business details given.`,
       tool: REPORT_DATA_A_TOOL,
       maxTokens: 3000,
     });
