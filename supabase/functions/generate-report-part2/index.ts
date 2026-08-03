@@ -72,9 +72,9 @@ AND this real-time market research:
 
 ${searchResults || "No additional search data available."}
 
-Fill in the recommendations data using the submit_report_recommendations tool. Exactly 6 recommendations, ordered HIGH priority first, then MEDIUM, then LOW. Be specific to this exact business — no generic advice. All text fields should be plain text, no markdown formatting.`,
+Fill in the recommendations data using the submit_report_recommendations tool. Exactly 6 recommendations, ordered HIGH priority first, then MEDIUM, then LOW. Be specific to this exact business — no generic advice. All text fields should be plain text, no markdown formatting.
 
-Also include a phased 90-day launch plan and 2-4 real Singapore government grants/schemes that plausibly fit this business — note that these are estimates and must be independently verified.
+Also include a phased 90-day launch plan and 2-4 real Singapore government grants/schemes that plausibly fit this business — note that these are estimates and must be independently verified.',
 
       tool: REPORT_DATA_B_TOOL,
       maxTokens: 2500,
