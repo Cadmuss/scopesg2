@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { callAnthropicReportText } from "../_shared/anthropic.ts";
+import { callAnthropicTool } from "../_shared/anthropic.ts";
+import { REPORT_ENHANCEMENT_TOOL, ReportEnhancement, ReportDataA, ReportDataB, renderReportHtml } from "../_shared/report-template.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -42,58 +43,80 @@ serve(async (req) => {
       });
     }
 
-    const conversation = Array.isArray(order.consultation_data)
-      ? order.consultation_data
-      : JSON.parse(order.consultation_data || "[]");
+    if (!order.report_data_a || !order.report_data_b) {
+      return new Response(JSON.stringify({ error: "Original report data not found — cannot enhance" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
-    const conversationText = conversation
-      .map((msg: any) => `${msg.role.toUpperCase()}: ${msg.content}`)
-      .join("\n\n");
+    const dataA = order.report_data_a as ReportDataA;
+    const dataB = order.report_data_b as ReportDataB;
 
-    const prompt = `You previously generated a competitive intelligence report for a Singapore business based on this consultation:
+    const system = "You are an expert business analyst specialising in the Singapore market. You produce structured data, not prose or HTML. You add ONLY new information — you never repeat what's already in the existing report.";
 
-${conversationText}
+    console.log("Generating enhancement based on supplement...");
+    const enhancement = await callAnthropicTool<ReportEnhancement>({
+      system,
+      userMessage: `Here is the EXISTING report data — do not repeat any of this:
 
-The customer wants to enhance the report with this additional information:
+COMPETITORS: ${JSON.stringify(dataA.competitors)}
+RISKS: ${JSON.stringify(dataA.risks)}
+GRANTS: ${JSON.stringify(dataB.grants)}
+CURRENT NARRATIVE: ${dataA.narrative}
+CURRENT UNIT ECONOMICS: ${JSON.stringify(dataA.unit_economics)}
+
+The customer has provided this NEW information to enhance the report:
 "${supplement}"
 
-Regenerate the FULL competitive intelligence report incorporating both the original consultation details AND the new supplemental information.
-
-CRITICAL: Return ONLY raw HTML starting with <!DOCTYPE html>. No markdown, no code blocks, no text before or after the HTML.
-
-IMPORTANT: Write concisely. Complete every section fully. Do not cut off mid-sentence or mid-section. Prioritise completion over detail. Maximum 3 competitors, maximum 4 SWOT points each.
-
-Generate a complete, professional HTML report with:
-- Premium navy (#0a1628) and gold (#c9a84c) styling
-- Executive summary
-- Competitive landscape with real Singapore competitors
-- SWOT analysis
-- Market positioning recommendations
-- Star ratings legend (★ = Weak, ★★★ = Average, ★★★★★ = Market Leader)
-- Verdict strip at the bottom`;
-
-    const reportText = await callAnthropicReportText({
-      system: "You are an expert business analyst specialising in the Singapore market.",
-      userMessage: prompt,
-      maxTokens: 6000,
+Using the submit_report_enhancement tool, provide ONLY what's genuinely new based on this supplement:
+- New competitors NOT already listed above (empty array if none)
+- New risks NOT already listed above (empty array if none)
+- New grants NOT already listed above (empty array if none)
+- A short narrative addendum reflecting this new info (empty string if the supplement doesn't add narrative-worthy insight)
+- Updated unit economics ONLY if the supplement specifically relates to costs or pricing (empty strings otherwise)`,
+      tool: REPORT_ENHANCEMENT_TOOL,
+      maxTokens: 1500,
     });
 
-    const cleanReport = reportText
-      .replace(/^[\s\S]*?(?=<!DOCTYPE|<html)/i, "")
-      .replace(/```\s*$/i, "")
-      .trim();
+    // Merge: append new items to existing arrays, never replace
+    const updatedDataA: ReportDataA = {
+      ...dataA,
+      narrative: enhancement.narrative_addendum
+        ? `${dataA.narrative} ${enhancement.narrative_addendum}`
+        : dataA.narrative,
+      competitors: [...dataA.competitors, ...enhancement.additional_competitors],
+      risks: [...dataA.risks, ...enhancement.additional_risks],
+      unit_economics: {
+        cost_per_cup: enhancement.updated_cost_per_cup || dataA.unit_economics.cost_per_cup,
+        price_per_cup: enhancement.updated_price_per_cup || dataA.unit_economics.price_per_cup,
+        margin_per_cup: enhancement.updated_margin_per_cup || dataA.unit_economics.margin_per_cup,
+        margin_percentage: enhancement.updated_margin_percentage || dataA.unit_economics.margin_percentage,
+        breakeven_cups_per_day: enhancement.updated_breakeven_cups_per_day || dataA.unit_economics.breakeven_cups_per_day,
+      },
+    };
+
+    const updatedDataB: ReportDataB = {
+      ...dataB,
+      grants: [...dataB.grants, ...enhancement.additional_grants],
+    };
+
+    const fullReport = renderReportHtml(updatedDataA, updatedDataB);
 
     const { error: updateError } = await supabase
       .from("report_orders")
       .update({
-        report_content: cleanReport,
+        report_data_a: updatedDataA,
+        report_data_b: updatedDataB,
+        report_content: fullReport,
         user_supplement: supplement,
       })
       .eq("id", orderId);
 
     if (updateError) throw updateError;
 
-    return new Response(JSON.stringify({ success: true, report: cleanReport }), {
+    console.log("Report enhanced and saved successfully — old content preserved, new content appended");
+
+    return new Response(JSON.stringify({ success: true, report: fullReport }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
 

@@ -383,3 +383,94 @@ td { padding:10px 12px; border-bottom:1px solid #1e3255; }
 </body>
 </html>`;
 }
+
+export interface ReportEnhancement {
+  additional_competitors: {
+    name: string;
+    price_range: string;
+    positioning: string;
+    presence: string;
+    threat_level: "HIGH" | "MEDIUM" | "LOW";
+  }[];
+  additional_risks: {
+    risk: string;
+    likelihood: "HIGH" | "MEDIUM" | "LOW";
+    impact: "HIGH" | "MEDIUM" | "LOW";
+    mitigation: string;
+  }[];
+  additional_grants: {
+    name: string;
+    agency: string;
+    description: string;
+    estimated_amount: string;
+  }[];
+  narrative_addendum: string; // empty string if nothing new to add
+  updated_cost_per_cup: string; // empty string if not relevant to the supplement
+  updated_price_per_cup: string;
+  updated_margin_per_cup: string;
+  updated_margin_percentage: string;
+  updated_breakeven_cups_per_day: string;
+}
+
+export const REPORT_ENHANCEMENT_TOOL = {
+  name: "submit_report_enhancement",
+  description: "Submit only the NEW information to add to an existing report, based on the customer's supplement. Do not repeat existing content — only what's new or changed.",
+  input_schema: {
+    type: "object",
+    properties: {
+      additional_competitors: {
+        type: "array",
+        maxItems: 3,
+        description: "Only genuinely NEW competitors not already covered. Empty array if none.",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            price_range: { type: "string" },
+            positioning: { type: "string" },
+            presence: { type: "string" },
+            threat_level: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
+          },
+          required: ["name", "price_range", "positioning", "presence", "threat_level"],
+        },
+      },
+      additional_risks: {
+        type: "array",
+        maxItems: 3,
+        description: "Only genuinely NEW risks not already covered. Empty array if none.",
+        items: {
+          type: "object",
+          properties: {
+            risk: { type: "string" },
+            likelihood: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
+            impact: { type: "string", enum: ["HIGH", "MEDIUM", "LOW"] },
+            mitigation: { type: "string" },
+          },
+          required: ["risk", "likelihood", "impact", "mitigation"],
+        },
+      },
+      additional_grants: {
+        type: "array",
+        maxItems: 2,
+        description: "Only genuinely NEW grants not already covered. Empty array if none.",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            agency: { type: "string" },
+            description: { type: "string" },
+            estimated_amount: { type: "string" },
+          },
+          required: ["name", "agency", "description", "estimated_amount"],
+        },
+      },
+      narrative_addendum: { type: "string", description: "1-2 sentences to ADD to the existing narrative, reflecting the new info. Empty string if nothing to add." },
+      updated_cost_per_cup: { type: "string", description: "Only if the supplement changes cost assumptions. Empty string otherwise." },
+      updated_price_per_cup: { type: "string", description: "Empty string if not relevant." },
+      updated_margin_per_cup: { type: "string", description: "Empty string if not relevant." },
+      updated_margin_percentage: { type: "string", description: "Empty string if not relevant." },
+      updated_breakeven_cups_per_day: { type: "string", description: "Empty string if not relevant." },
+    },
+    required: ["additional_competitors", "additional_risks", "additional_grants", "narrative_addendum", "updated_cost_per_cup", "updated_price_per_cup", "updated_margin_per_cup", "updated_margin_percentage", "updated_breakeven_cups_per_day"],
+  },
+};
