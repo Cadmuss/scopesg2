@@ -578,7 +578,7 @@ const Chat = () => {
                   <FileText className="w-5 h-5 text-accent shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-foreground">Get Your Premium Report</p>
-                    <p className="text-xs text-muted-foreground">Detailed projections, competitor analysis &amp; 90-day launch plan</p>
+                    <p className="text-xs text-muted-foreground">Real competitor names. Live market data. The edge your competitors don't have.</p>
                   </div>
                 </div>
                 <Button variant="gold" onClick={handlePurchaseReport} disabled={isPurchasing || !snapshotDelivered} className="gap-2 shrink-0">
