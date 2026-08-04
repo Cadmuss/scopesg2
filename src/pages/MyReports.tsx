@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FileText, Loader as Loader2, ArrowLeft, Sparkles, Calendar } from "lucide-react";
+import { FileText, Loader as Loader2, ArrowLeft, Sparkles, Calendar, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Navbar from "@/components/Navbar";
@@ -14,6 +14,7 @@ type ReportOrder = {
   id: string;
   created_at: string;
   status: string;
+  report_name: string | null;
 };
 
 const MyReports = () => {
@@ -33,7 +34,7 @@ const MyReports = () => {
       try {
         const { data, error } = await supabase
           .from("report_orders")
-          .select("id, created_at, status")
+          .select("id, created_at, status, report_name")
           .eq("user_id", user.id)
           .order("created_at", { ascending: false });
 
@@ -56,6 +57,54 @@ const MyReports = () => {
       month: "long",
       day: "numeric",
     });
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState("");
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  const startEditing = (order: ReportOrder) => {
+    setEditingId(order.id);
+    setDraftName(order.report_name || "");
+  };
+
+  const cancelEditing = () => {
+    setEditingId(null);
+    setDraftName("");
+  };
+
+  const saveName = async (orderId: string) => {
+    const trimmed = draftName.trim().slice(0, 60);
+    if (!trimmed) {
+      cancelEditing();
+      return;
+    }
+
+    const current = orders.find((o) => o.id === orderId);
+    if (current && current.report_name === trimmed) {
+      cancelEditing();
+      return;
+    }
+
+    setSavingId(orderId);
+    try {
+      const { error } = await supabase
+        .from("report_orders")
+        .update({ report_name: trimmed })
+        .eq("id", orderId);
+      if (error) throw error;
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, report_name: trimmed } : o))
+      );
+      toast.success("Report renamed.");
+    } catch (e: any) {
+      console.error("Failed to rename report:", e);
+      toast.error("Failed to rename report.");
+    } finally {
+      setSavingId(null);
+      setEditingId(null);
+      setDraftName("");
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -114,11 +163,84 @@ const MyReports = () => {
                   <Card className="border-border/50 hover:border-accent/40 transition-colors">
                     <CardContent className="p-5">
                       <div className="flex items-start justify-between gap-3 mb-4">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <Calendar className="w-4 h-4" />
-                          {formatDate(order.created_at)}
+                        <div className="flex-1 min-w-0">
+                          {editingId === order.id ? (
+                            <div className="flex items-center gap-1.5">
+                              <input
+                                autoFocus
+                                value={draftName}
+                                onChange={(e) => setDraftName(e.target.value.slice(0, 60))}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") saveName(order.id);
+                                  if (e.key === "Escape") cancelEditing();
+                                }}
+                                onBlur={() => saveName(order.id)}
+                                disabled={savingId === order.id}
+                                maxLength={60}
+                                placeholder="Report name"
+                                className="w-full bg-transparent border-b border-accent/50 text-sm font-medium text-foreground outline-none focus:border-accent pb-0.5 disabled:opacity-50"
+                              />
+                              <button
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => saveName(order.id)}
+                                disabled={savingId === order.id}
+                                className="text-accent hover:text-accent/80 flex-shrink-0 disabled:opacity-50"
+                                aria-label="Save name"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={cancelEditing}
+                                disabled={savingId === order.id}
+                                className="text-muted-foreground hover:text-foreground flex-shrink-0 disabled:opacity-50"
+                                aria-label="Cancel"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1.5 group">
+                              {order.report_name ? (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditing(order)}
+                                  className="text-sm font-medium text-foreground hover:text-accent transition-colors text-left truncate"
+                                  title="Click to rename"
+                                >
+                                  {order.report_name}
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => startEditing(order)}
+                                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-accent transition-colors"
+                                  title="Add a name"
+                                >
+                                  <Calendar className="w-4 h-4" />
+                                  {formatDate(order.created_at)}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => startEditing(order)}
+                                className="text-muted-foreground/60 hover:text-accent transition-colors opacity-0 group-hover:opacity-100 flex-shrink-0"
+                                aria-label="Rename report"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          )}
+                          {order.report_name && editingId !== order.id && (
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                              <Calendar className="w-3 h-3" />
+                              {formatDate(order.created_at)}
+                            </div>
+                          )}
                         </div>
-                        <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">
+                        <span className="inline-flex items-center rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600 flex-shrink-0">
                           Completed
                         </span>
                       </div>
