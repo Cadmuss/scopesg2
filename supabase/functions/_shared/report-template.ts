@@ -218,9 +218,12 @@ function esc(s: string): string {
 const THREAT_COLOR: Record<string, string> = { HIGH: "#e05c5c", MEDIUM: "#d4a843", LOW: "#7ec8a0" };
 
 // ─── Fixed template — never regenerated, never truncated ──────────────
+// NOTE: every array field below is defended with `?? []` so that older
+// orders (whose report_data_a / report_data_b predate a schema field being
+// added) render with an empty section instead of throwing.
 
 export function renderReportHtml(a: ReportDataA, b: ReportDataB): string {
-  const competitorRows = a.competitors.map((c) => `
+  const competitorRows = (a.competitors ?? []).map((c) => `
     <tr>
       <td class="td-name">${esc(c.name)}</td>
       <td>${esc(c.price_range)}</td>
@@ -229,13 +232,13 @@ export function renderReportHtml(a: ReportDataA, b: ReportDataB): string {
       <td style="color:${THREAT_COLOR[c.threat_level] || "#c9a84c"};font-weight:700;">${esc(c.threat_level)}</td>
     </tr>`).join("");
 
-  const swotBlock = (title: string, items: { title: string; description: string }[]) => `
+  const swotBlock = (title: string, items: { title: string; description: string }[] = []) => `
     <div class="swot-col">
       <h4>${esc(title)}</h4>
-      ${items.map((i) => `<div class="swot-item"><strong>${esc(i.title)}</strong><p>${esc(i.description)}</p></div>`).join("")}
+      ${(items ?? []).map((i) => `<div class="swot-item"><strong>${esc(i.title)}</strong><p>${esc(i.description)}</p></div>`).join("")}
     </div>`;
 
-  const riskRows = a.risks.map((r) => `
+  const riskRows = (a.risks ?? []).map((r) => `
     <tr>
       <td>${esc(r.risk)}</td>
       <td style="color:${THREAT_COLOR[r.likelihood]};font-weight:700;">${esc(r.likelihood)}</td>
@@ -243,7 +246,7 @@ export function renderReportHtml(a: ReportDataA, b: ReportDataB): string {
       <td>${esc(r.mitigation)}</td>
     </tr>`).join("");
 
-  const recBlocks = b.recommendations.map((r, idx) => `
+  const recBlocks = (b.recommendations ?? []).map((r, idx) => `
     <div class="rec-card" style="border-left-color:${r.priority === "HIGH" ? "#c9a84c" : r.priority === "MEDIUM" ? "#2a4a7f" : "#4a5a6f"};">
       <span class="rec-num">${idx + 1}</span>
       <div>
@@ -252,16 +255,16 @@ export function renderReportHtml(a: ReportDataA, b: ReportDataB): string {
       </div>
     </div>`).join("");
 
-  const kpiRows = b.kpis.map((k) => `
+  const kpiRows = (b.kpis ?? []).map((k) => `
     <tr><td>${esc(k.metric)}</td><td>${esc(k.target)}</td><td>${esc(k.timeframe)}</td></tr>`).join("");
 
-  const planBlocks = b.ninety_day_plan.map((p) => `
+  const planBlocks = (b.ninety_day_plan ?? []).map((p) => `
     <div class="plan-phase">
       <h4>${esc(p.phase)} — ${esc(p.focus)}</h4>
-      <ul>${p.actions.map((act) => `<li>${esc(act)}</li>`).join("")}</ul>
+      <ul>${(p.actions ?? []).map((act) => `<li>${esc(act)}</li>`).join("")}</ul>
     </div>`).join("");
 
-  const grantRows = b.grants.map((g) => `
+  const grantRows = (b.grants ?? []).map((g) => `
     <tr>
       <td class="td-name">${esc(g.name)}</td>
       <td>${esc(g.agency)}</td>
@@ -335,18 +338,18 @@ td { padding:10px 12px; border-bottom:1px solid #1e3255; }
 
     <div class="section-label">SWOT Analysis</div>
     <div class="swot-grid">
-      ${swotBlock("Strengths", a.swot.strengths)}
-      ${swotBlock("Weaknesses", a.swot.weaknesses)}
-      ${swotBlock("Opportunities", a.swot.opportunities)}
-      ${swotBlock("Threats", a.swot.threats)}
+      ${swotBlock("Strengths", a.swot?.strengths)}
+      ${swotBlock("Weaknesses", a.swot?.weaknesses)}
+      ${swotBlock("Opportunities", a.swot?.opportunities)}
+      ${swotBlock("Threats", a.swot?.threats)}
     </div>
 
     <div class="section-label">Unit Economics</div>
     <div class="stats-grid">
-      <div class="stat-card"><div class="stat-number">${esc(a.unit_economics.cost_per_cup)}</div><div class="stat-label">Cost / Cup</div></div>
-      <div class="stat-card"><div class="stat-number">${esc(a.unit_economics.price_per_cup)}</div><div class="stat-label">Price / Cup</div></div>
-      <div class="stat-card"><div class="stat-number">${esc(a.unit_economics.margin_per_cup)}</div><div class="stat-label">Margin / Cup (${esc(a.unit_economics.margin_percentage)})</div></div>
-      <div class="stat-card"><div class="stat-number">${esc(a.unit_economics.breakeven_cups_per_day)}</div><div class="stat-label">Breakeven / Day</div></div>
+      <div class="stat-card"><div class="stat-number">${esc(a.unit_economics?.cost_per_cup)}</div><div class="stat-label">Cost / Cup</div></div>
+      <div class="stat-card"><div class="stat-number">${esc(a.unit_economics?.price_per_cup)}</div><div class="stat-label">Price / Cup</div></div>
+      <div class="stat-card"><div class="stat-number">${esc(a.unit_economics?.margin_per_cup)}</div><div class="stat-label">Margin / Cup (${esc(a.unit_economics?.margin_percentage)})</div></div>
+      <div class="stat-card"><div class="stat-number">${esc(a.unit_economics?.breakeven_cups_per_day)}</div><div class="stat-label">Breakeven / Day</div></div>
     </div>
     <div class="legal-note">Estimates based on information you provided and general market assumptions. Actual costs, pricing, and margins will vary — validate with real supplier quotes before committing capital.</div>
 
