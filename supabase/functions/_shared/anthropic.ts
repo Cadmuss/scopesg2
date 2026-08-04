@@ -202,6 +202,7 @@ export async function callAnthropicReportText(opts: {
   }
 
   const result = await response.json();
+  console.log("CACHE DEBUG (report):", JSON.stringify(result.usage)); 
   const parts = (result.content ?? [])
     .filter((block: { type: string }) => block.type === "text")
     .map((block: { text: string }) => block.text);
