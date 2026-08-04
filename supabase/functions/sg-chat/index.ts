@@ -129,7 +129,13 @@ serve(async (req) => {
             body: JSON.stringify({
               model: HAIKU_MODEL,
               max_tokens: 550,
-              system: SYSTEM_PROMPT,
+              system: [
+                {
+                  type: "text",
+                  text: SYSTEM_PROMPT,
+                  cache_control: { type: "ephemeral" },
+                },
+              ],
               messages: anthropicMessages,
               stream: true,
             }),
@@ -190,10 +196,10 @@ serve(async (req) => {
                   controller.enqueue(encoder.encode(`data: ${JSON.stringify(openaiChunk)}\n\n`));
                 }
 
-                // Handle message_start for token counting info
-                if (event.type === "message_start" && event.message?.id) {
-                  // Can track conversation if needed
-                }
+               // Handle message_start for token counting info
+if (event.type === "message_start" && event.message?.id) {
+  console.log("CACHE DEBUG:", JSON.stringify(event.message.usage));
+}
 
                 // Handle message_stop - end of stream
                 if (event.type === "message_stop") {
