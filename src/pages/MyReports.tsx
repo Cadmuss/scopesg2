@@ -207,7 +207,7 @@ const MyReports = () => {
                                 <button
                                   type="button"
                                   onClick={() => startEditing(order)}
-                                  className="text-sm font-medium text-foreground hover:text-accent transition-colors text-left truncate"
+                                  className="text-sm font-medium text-foreground hover:text-accent transition-colors text-left truncate underline decoration-muted-foreground/40 decoration-dotted underline-offset-2 hover:decoration-accent"
                                   title="Click to rename"
                                 >
                                   {order.report_name}
@@ -216,7 +216,7 @@ const MyReports = () => {
                                 <button
                                   type="button"
                                   onClick={() => startEditing(order)}
-                                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-accent transition-colors"
+                                  className="flex items-center gap-2 text-sm text-muted-foreground hover:text-accent transition-colors underline decoration-muted-foreground/40 decoration-dotted underline-offset-2 hover:decoration-accent"
                                   title="Add a name"
                                 >
                                   <Calendar className="w-4 h-4" />
