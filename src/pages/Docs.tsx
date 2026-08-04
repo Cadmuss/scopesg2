@@ -280,7 +280,7 @@ const Docs = () => {
               </div>
               <div className="bg-card rounded-xl p-6 border border-border shadow-sm">
                 <p className="text-muted-foreground mb-4">
-                  AI-powered daily analysis of <strong className="text-foreground">6 Singapore market trends</strong>, updated every 24 hours.
+                  AI-powered analysis of <strong className="text-foreground">6 Singapore market trends</strong>, updated weekly.
                 </p>
                 <h3 className="font-semibold text-foreground mb-3">Each trend includes:</h3>
                 <ul className="grid md:grid-cols-2 gap-3">
