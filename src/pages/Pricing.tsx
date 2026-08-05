@@ -80,7 +80,7 @@ const Pricing = () => (
             </Link>
 
             <Link to="/sample-report">
-  <Button variant="outline" className="w-full mt-3">
+  <Button variant="gold" className="w-full mt-3">
     See a Sample Report
   </Button>
 </Link>
