@@ -22,6 +22,7 @@ const Terms = lazy(() => import("./pages/Terms"));
 const Docs = lazy(() => import("./pages/Docs"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const Pricing = lazy(() => import("@/pages/Pricing"));
+const SampleReport = lazy(() => import("./pages/SampleReport"));
 
 const queryClient = new QueryClient();
 
@@ -49,6 +50,7 @@ const App = () => (
               <Route path="/docs" element={<Docs />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/email-verified" element={<EmailVerified />} />
+              <Route path="/sample-report" element={<SampleReport />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
