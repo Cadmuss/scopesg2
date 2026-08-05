@@ -50,7 +50,7 @@ const Auth = () => {
       } else {
         toast({
           title: "Check your email",
-          description: "We sent you a confirmation link to verify your account.",
+          description: "If this email isn't already registered, you'll receive a confirmation link shortly.",
         });
       }
     }
