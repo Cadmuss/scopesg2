@@ -16,6 +16,7 @@ const News = lazy(() => import("./pages/News"));
 const Auth = lazy(() => import("./pages/Auth"));
 const KnowledgeBase = lazy(() => import("./pages/KnowledgeBase"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const EmailVerified = lazy(() => import("./pages/EmailVerified"));
 const Privacy = lazy(() => import("./pages/Privacy"));
 const Terms = lazy(() => import("./pages/Terms"));
 const Docs = lazy(() => import("./pages/Docs"));
@@ -47,6 +48,7 @@ const App = () => (
               <Route path="/terms" element={<Terms />} />
               <Route path="/docs" element={<Docs />} />
               <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/email-verified" element={<EmailVerified />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>
