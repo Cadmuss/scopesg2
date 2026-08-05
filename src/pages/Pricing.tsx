@@ -79,6 +79,12 @@ const Pricing = () => (
               </Button>
             </Link>
 
+            <Link to="/sample-report">
+  <Button variant="outline" className="w-full mt-3">
+    See a Sample Report
+  </Button>
+</Link>
+
             <p className="text-xs text-primary-foreground/50 mt-4 text-center">
               Enhance is currently included with every report. Pricing for individual features may evolve as ScopeSG grows.
             </p>
